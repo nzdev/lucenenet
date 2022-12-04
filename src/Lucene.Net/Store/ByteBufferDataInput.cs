@@ -42,7 +42,7 @@ namespace Lucene.Net.Store
     /// A {@link DataInput} implementing {@link RandomAccessInput} and reading data from a list of {@link
     /// ByteBuffer}s.
     /// </summary>
-    public sealed class ByteBuffersDataInput : DataInput, IAccountable, RandomAccessInput
+    public sealed class ByteBufferDataInput : DataInput, IAccountable, RandomAccessInput
     {
         private readonly ByteBuffer[] blocks;
         private readonly FloatBuffer[] floatBuffers;
@@ -59,7 +59,7 @@ namespace Lucene.Net.Store
          * an identical remaining number of bytes in the buffer (that is a power of two). The last buffer
          * can be of an arbitrary remaining length.
          */
-        public ByteBuffersDataInput(List<ByteBuffer> buffers)
+        public ByteBufferDataInput(List<ByteBuffer> buffers)
         {
             EnsureAssumptions(buffers);
 
@@ -82,7 +82,7 @@ namespace Lucene.Net.Store
                 this.blockMask = (1 << blockBits) - 1;
             }
 
-            this.size = Arrays.stream(blocks).mapToLong(block->block.remaining()).sum();
+            this.size = Arrays.Stream(blocks).mapToLong(block->block.remaining()).sum();
 
             // The initial "position" of this stream is shifted by the position of the first block.
             this.offset = blocks[0].position();

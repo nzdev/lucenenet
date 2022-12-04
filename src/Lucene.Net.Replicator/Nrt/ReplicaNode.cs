@@ -143,7 +143,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 if (state.Equals("init") == false)
                 {
-                    throw new IllegalStateException("already started");
+                    throw IllegalStateException.Create("already started");
                 }
 
                 Message("top: now start");
