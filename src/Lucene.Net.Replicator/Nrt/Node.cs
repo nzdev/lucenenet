@@ -120,7 +120,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 long now = Time.NanoTime();
                 TextWriter.WriteLine(
-                    String.Format(
+                    string.Format(
                         "%5.3fs %5.1fs:           [%11s] %s",
                         (now - globalStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                         (now - localStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
@@ -135,7 +135,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 long now = Time.NanoTime();
                 TextWriter.WriteLine(
-                    String.Format(
+                    string.Format(
                         "%5.3fs %5.1fs:         N%d [%11s] %s",
                         (now - globalStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                         (now - localStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
@@ -145,14 +145,13 @@ namespace Lucene.Net.Replicator.Nrt
             }
         }
 
-        public void Message
-            (String message)
+        public void Message(string message)
         {
             if (TextWriter != null)
             {
                 long now = Time.NanoTime();
                 TextWriter.WriteLine(
-                    String.Format(
+                    string.Format(
                         "%5.3fs %5.1fs: %7s %2s [%11s] %s",
                         (now - globalStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                         (now - localStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
@@ -163,7 +162,7 @@ namespace Lucene.Net.Replicator.Nrt
             }
         }
 
-        public String Name()
+        public string Name()
         {
             char mode = this is PrimaryNode ? 'P' : 'R';
             return mode + id.ToString();

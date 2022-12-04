@@ -364,10 +364,10 @@ namespace Lucene.Net.Replicator.Nrt
                         Message("top: same primary as before");
                     }
 
-                    if (infos.GetGeneration() < maxPendingGen)
+                    if (infos.Generation < maxPendingGen)
                     {
                         Message(
-                            "top: move infos generation from " + infos.GetGeneration() + " to " + maxPendingGen);
+                            "top: move infos generation from " + infos.Generation + " to " + maxPendingGen);
                         infos.SetNextWriteGeneration(maxPendingGen);
                     }
 
@@ -460,7 +460,7 @@ namespace Lucene.Net.Replicator.Nrt
                     "top: commit wrote segments file "
                         + segmentsFileName
                         + " version="
-                        + infos.GetVersion()
+                        + infos.Version
                         + " sis="
                         + infos.ToString()
                         + " commitData="
@@ -474,7 +474,7 @@ namespace Lucene.Net.Replicator.Nrt
                 lastCommitFiles.Clear();
                 lastCommitFiles.AddAll(indexFiles);
                 lastCommitFiles.Add(segmentsFileName);
-                Message("top: commit version=" + infos.GetVersion() + " files now " + lastCommitFiles);
+                Message("top: commit version=" + infos.Version + " files now " + lastCommitFiles);
             }
             finally
             {
@@ -531,10 +531,10 @@ namespace Lucene.Net.Replicator.Nrt
                     SegmentInfos.ReadCommit(dir, toIndexInput(copyState.infosBytes), copyState.gen);
                 if (Debugging.AssertsEnabled)
                 {
-                    Debugging.Assert(infos.GetVersion() == copyState.version);
+                    Debugging.Assert(infos.Version == copyState.version);
                 }
 
-                Message("  version=" + infos.GetVersion() + " segments=" + infos.ToString());
+                Message("  version=" + infos.Version + " segments=" + infos.ToString());
 
                 // Cutover to new searcher:
                 ((SegmentInfosSearcherManager)mgr).SetCurrentInfos(infos);
