@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,58 +17,62 @@
 
 
 using Lucene.Net.Index;
+using System;
+using System.Collections.Generic;
 
-namespace Lucene.Net.Replicator.Nrt;
-
-/// <summary>
-/// Holds incRef'd file level details for one point-in-time segment infos on the primary node.
-/// </summary>
-/// <remarks>
-/// @lucene.experimental
-/// </remarks>
-public class CopyState
+namespace Lucene.Net.Replicator.Nrt
 {
 
-#pragma warning disable IDE1006 // Naming Styles
-    public readonly IReadOnlyDictionary<string, FileMetaData> files;
-    public readonly long version;
-    public readonly long gen;
-    public readonly byte[] infosBytes;
-    public readonly IReadOnlySet<string> completedMergeFiles;
-    public readonly long primaryGen;
-
+    /// <summary>
+    /// Holds incRef'd file level details for one point-in-time segment infos on the primary node.
+    /// </summary>
     /// <remarks>
-    /// only non-null on the primary node
+    /// @lucene.experimental
     /// </remarks>
-    public readonly SegmentInfos infos;
+    public class CopyState
+    {
+
+#pragma warning disable IDE1006 // Naming Styles
+        public readonly IReadOnlyDictionary<string, FileMetaData> files;
+        public readonly long version;
+        public readonly long gen;
+        public readonly byte[] infosBytes;
+        public readonly IReadOnlySet<string> completedMergeFiles;
+        public readonly long primaryGen;
+
+        /// <remarks>
+        /// only non-null on the primary node
+        /// </remarks>
+        public readonly SegmentInfos infos;
 
 #pragma warning restore IDE1006 // Naming Styles
 
-    public CopyState(
-        Dictionary<string, FileMetaData> files,
-        long version,
-        long gen,
-        byte[] infosBytes,
-        HashSet<string> completedMergeFiles,
-        long primaryGen,
-        SegmentInfos infos)
-    {
-        if (completedMergeFiles is null)
+        public CopyState(
+            Dictionary<string, FileMetaData> files,
+            long version,
+            long gen,
+            byte[] infosBytes,
+            HashSet<string> completedMergeFiles,
+            long primaryGen,
+            SegmentInfos infos)
         {
-            throw new ArgumentNullException(nameof(completedMergeFiles));
+            if (completedMergeFiles is null)
+            {
+                throw new ArgumentNullException(nameof(completedMergeFiles));
+            }
+
+            this.files = files;
+            this.version = version;
+            this.gen = gen;
+            this.infosBytes = infosBytes;
+            this.completedMergeFiles = completedMergeFiles;
+            this.primaryGen = primaryGen;
+            this.infos = infos;
         }
 
-        this.files = files;
-        this.version = version;
-        this.gen = gen;
-        this.infosBytes = infosBytes;
-        this.completedMergeFiles = completedMergeFiles;
-        this.primaryGen = primaryGen;
-        this.infos = infos;
-    }
-
-    public override string ToString()
-    {
-        return nameof(CopyState) + "(version=" + version + ")";
+        public override string ToString()
+        {
+            return nameof(CopyState) + "(version=" + version + ")";
+        }
     }
 }

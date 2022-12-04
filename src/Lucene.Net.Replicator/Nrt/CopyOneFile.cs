@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+using System;
+
 namespace Lucene.Net.Replicator.Nrt;
 
 import java.io.Closeable;
@@ -27,10 +29,10 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
 
 /** Copies one file from an incoming DataInput to a dest filename in a local Directory */
-public class CopyOneFile implements Closeable
+public class CopyOneFile : IDisposable
 {
-  private final DataInput in;
-private final IndexOutput out;
+  private final DataInput input;
+private final IndexOutput output;
 private final ReplicaNode dest;
 public final String name;
 public final String tmpName;
@@ -42,15 +44,15 @@ private final byte[] buffer;
 private long bytesCopied;
 
 public CopyOneFile(
-    DataInput in, ReplicaNode dest, String name, FileMetaData metaData, byte[] buffer)
+    DataInput input, ReplicaNode dest, String name, FileMetaData metaData, byte[] buffer)
       throws IOException
 {
-    this.in = in;
+    this.input = input;
     this.name = name;
     this.dest = dest;
     this.buffer = buffer;
     // TODO: pass correct IOCtx, e.g. seg total size
-    out = dest.createTempOutput(name, "copy", IOContext.DEFAULT);
+    output = dest.createTempOutput(name, "copy", IOContext.DEFAULT);
     tmpName = out.getName();
 
     // last 8 bytes are checksum, which we write ourselves after copying all bytes and confirming

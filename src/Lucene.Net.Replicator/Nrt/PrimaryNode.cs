@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -72,6 +72,7 @@ final Set<String> finishedMergedFiles = Collections.synchronizedSet(new HashSet<
 
 private final AtomicInteger copyingCount = new AtomicInteger();
 
+/// <exception cref="IOException"/>
 public PrimaryNode(
     IndexWriter writer,
     int id,
@@ -79,7 +80,6 @@ public PrimaryNode(
     long forcePrimaryVersion,
     SearcherFactory searcherFactory,
     PrintStream printStream)
-      throws IOException
 {
     super(id, writer.getDirectory(), searcherFactory, printStream);
     message("top: now init primary");
@@ -165,7 +165,8 @@ public long getPrimaryGen()
  * Flush all index operations to disk and opens a new near-real-time reader. new NRT point, to
  * make the changes visible to searching. Returns true if there were changes.
  */
-public boolean flushAndRefresh() throws IOException
+/// <exception cref="IOException"/>
+public boolean flushAndRefresh()
 {
     message("top: now flushAndRefresh");
     Set<String> completedMergeFiles;
@@ -232,7 +233,8 @@ public void setRemoteCloseTimeoutMs(int remoteCloseTimeoutMs)
 }
 
 @Override
-  public void commit() throws IOException
+  /// <exception cref="IOException"/>
+  public void commit()
 {
     Map<String, String> commitData = new HashMap<>();
 commitData.put(PRIMARY_GEN_KEY, Long.toString(primaryGen));
@@ -245,8 +247,9 @@ writer.setLiveCommitData(commitData.entrySet(), false);
 writer.commit();
   }
 
-  /** IncRef the current CopyState and return it */
-  public synchronized CopyState getCopyState() throws IOException
+/** IncRef the current CopyState and return it */
+/// <exception cref="IOException"/>
+public synchronized CopyState getCopyState()
 {
     ensureOpen(false);
     // message("top: getCopyState replicaID=" + replicaID + " replicaNodeID=" + replicaNodeID + "
@@ -259,7 +262,8 @@ writer.commit();
 }
 
 /** Called once replica is done (or failed) copying an NRT point */
-public void releaseCopyState(CopyState copyState) throws IOException
+/// <exception cref="IOException"/>
+public void releaseCopyState(CopyState copyState)
 {
     // message("top: releaseCopyState version=" + copyState.version);
     assert copyState.infos != null;
@@ -288,7 +292,8 @@ private void ensureOpen(boolean allowClosing)
 }
 
 /** Steals incoming infos refCount; returns true if there were changes. */
-private synchronized boolean setCurrentInfos(Set < String > completedMergeFiles) throws IOException
+/// <exception cref="IOException"/>
+private synchronized boolean setCurrentInfos(Set < String > completedMergeFiles)
 {
 
     IndexSearcher searcher = null;
@@ -363,7 +368,8 @@ copyState =
 return true;
 }
 
-  private synchronized void waitForAllRemotesToClose() throws IOException
+        /// <exception cref="IOException"/>
+  private synchronized void waitForAllRemotesToClose()
 {
     if (remoteCloseTimeoutMs == 0) {
         return;
@@ -391,7 +397,8 @@ return true;
 }
 
 @Override
-  public void close() throws IOException
+  /// <exception cref="IOException"/>
+  public void close()
 {
     state = "closing";
     message("top: close primary");
@@ -414,6 +421,7 @@ return true;
 }
 
 /** Called when a merge has finished, but before IW switches to the merged segment */
+/// <exception cref="IOException"/>
 protected abstract void preCopyMergedSegmentFiles(
-    SegmentCommitInfo info, Map<String, FileMetaData> files) throws IOException;
+    SegmentCommitInfo info, Map<String, FileMetaData> files)
 }

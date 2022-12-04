@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,45 +15,47 @@
  * limitations under the License.
  */
 
-namespace Lucene.Net.Replicator.Nrt;
-
-
-
-/// <summary>
-///  Holds metadata details about a single file that we use to confirm two files(one remote, one local) are in fact "identical".
-/// </summary>
-/// <remarks>
-/// @lucene.experimental
-/// </remarks>
-public class FileMetaData
+namespace Lucene.Net.Replicator.Nrt
 {
 
+
+
+    /// <summary>
+    ///  Holds metadata details about a single file that we use to confirm two files(one remote, one local) are in fact "identical".
+    /// </summary>
+    /// <remarks>
+    /// @lucene.experimental
+    /// </remarks>
+    public class FileMetaData
+    {
+
 #pragma warning disable IDE1006 // Naming Styles
-    /// <remarks>
-    /// Header and footer of the file must be identical between primary and replica to consider the files equal:
-    /// </remarks>
-    public readonly byte[] header;
-    public readonly byte[] footer;
+        /// <remarks>
+        /// Header and footer of the file must be identical between primary and replica to consider the files equal:
+        /// </remarks>
+        public readonly byte[] header;
+        public readonly byte[] footer;
 
-    public readonly long length;
+        public readonly long length;
 
-    /// <remarks>
-    /// Used to ensure no bit flips when copying the file:
-    /// </remarks>
-    public readonly long checksum;
+        /// <remarks>
+        /// Used to ensure no bit flips when copying the file:
+        /// </remarks>
+        public readonly long checksum;
 
 #pragma warning restore IDE1006 // Naming Styles
 
-    public FileMetaData(byte[] header, byte[] footer, long length, long checksum)
-    {
-        this.header = header;
-        this.footer = footer;
-        this.length = length;
-        this.checksum = checksum;
-    }
+        public FileMetaData(byte[] header, byte[] footer, long length, long checksum)
+        {
+            this.header = header;
+            this.footer = footer;
+            this.length = length;
+            this.checksum = checksum;
+        }
 
-    public override string ToString()
-    {
-        return "FileMetaData(length=" + length + ")";
+        public override string ToString()
+        {
+            return "FileMetaData(length=" + length + ")";
+        }
     }
 }
