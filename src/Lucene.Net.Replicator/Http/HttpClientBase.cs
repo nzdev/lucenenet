@@ -177,7 +177,7 @@ namespace Lucene.Net.Replicator.Http
                 //           and have these Sync methods with their caveats.
                 input = response.Content.ReadAsStreamAsync().ConfigureAwait(false).GetAwaiter().GetResult();
             }
-            catch (Exception t) when (t.IsThrowable())
+            catch (Exception t) when (t.IsException())
             {
                 // the response stream is not an exception - could be an error in servlet.init().
                 // LUCENENET: Check status code to see if we had an HTTP error
@@ -200,7 +200,7 @@ namespace Lucene.Net.Replicator.Http
                 JsonSerializer serializer = JsonSerializer.Create(ReplicationService.JSON_SERIALIZER_SETTINGS);
                 exception = (Exception)serializer.Deserialize(new JsonTextReader(reader));
             }
-            catch (Exception th) when (th.IsThrowable())
+            catch (Exception th) when (th.IsException())
             {
                 //not likely
                 throw RuntimeException.Create(string.Format("Failed to read exception object: {0} {1}", response.StatusCode, response.ReasonPhrase), th);
@@ -332,7 +332,7 @@ namespace Lucene.Net.Replicator.Http
             {
                 return call();
             }
-            catch (Exception t) when (t.IsThrowable())
+            catch (Exception t) when (t.IsException())
             {
                 th = t;
             }

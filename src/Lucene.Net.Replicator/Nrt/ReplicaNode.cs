@@ -109,7 +109,7 @@ namespace Lucene.Net.Replicator.Nrt
                 deleter = new ReplicaFileDeleter(this, dir);
                 success = true;
             }
-            catch (Throwable t)
+            catch (Exception t)
             {
                 message("exc on init:");
                 t.printStackTrace(printStream);
@@ -366,7 +366,7 @@ namespace Lucene.Net.Replicator.Nrt
                 message("top: done start");
                 state = "idle";
             }
-            catch (Throwable t)
+            catch (Exception t)
             {
                 if (Objects.toString(t.getMessage()).startsWith("replica cannot start") == false)
                 {

@@ -132,7 +132,7 @@ namespace Lucene.Net.Replicator.Nrt
                 message("init: infos version=" + curInfos.getVersion());
 
             }
-            catch (Throwable t)
+            catch (Exception t)
             {
                 message("init: exception");
                 t.printStackTrace(printStream);

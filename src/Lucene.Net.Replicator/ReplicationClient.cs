@@ -82,7 +82,7 @@ namespace Lucene.Net.Replicator
                     {
                         doUpdate();
                     }
-                    catch (Exception t) when (t.IsThrowable())
+                    catch (Exception t) when (t.IsException())
                     {
                         handleUpdateException(t);
                     }

@@ -16,22 +16,25 @@
  */
 
 using J2N;
-using J2N.Collections.Generic;
+using JCG = J2N.Collections.Generic;
 using J2N.Threading.Atomic;
 using Lucene.Net.Replicator.Nrt;
+using Lucene.Net.Support;
+using Lucene.Net.Support.Threading;
+using Lucene.Net.Util;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
+using Lucene.Net.Diagnostics;
 
-
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import org.apache.lucene.index.CorruptIndexException;
-import org.apache.lucene.util.IOUtils;
+//import java.io.IOException;
+//import java.util.Iterator;
+//import java.util.List;
+//import java.util.Locale;
+//import java.util.Set;
+//import org.apache.lucene.index.CorruptIndexException;
+//import org.apache.lucene.util.IOUtils;
 
 namespace Lucene.Net.Replicator.Nrt
 {
@@ -41,46 +44,53 @@ namespace Lucene.Net.Replicator.Nrt
      *
      * @lucene.experimental
      */
-    public abstract class CopyJob : Comparable<CopyJob>
+    public abstract class CopyJob : IComparable<CopyJob>
     {
         private static readonly AtomicInt64 counter = new AtomicInt64();
         protected readonly ReplicaNode dest;
 
-        protected readonly Map<String, FileMetaData> files;
+        protected readonly IDictionary<String, FileMetaData> files;
 
-        public readonly long ord = counter.incrementAndGet();
+        public readonly long ord = counter.IncrementAndGet();
 
-        /** True for an NRT sync, false for pre-copying a newly merged segment */
+        /// <remarks>
+        /// True for an NRT sync, false for pre-copying a newly merged segment
+        /// </remarks>
         public readonly bool highPriority;
 
         public readonly OnceDone onceDone;
 
         public readonly long startNS = Time.NanoTime();
-
         public readonly string reason;
 
-        protected readonly List<Map.Entry<String, FileMetaData>> toCopy;
+        protected readonly IList<KeyValuePair<String, FileMetaData>> toCopy;
 
         protected long totBytes;
 
         protected long totBytesCopied;
 
-        // The file we are currently copying:
+        /// <summary>
+        /// The file we are currently copying:
+        /// </summary>
         protected CopyOneFile current;
 
-        // Set when we are cancelled
-        protected volatile Throwable exc;
+        /// <remarks>
+        /// Set when we are cancelled
+        /// </remarks>
+        protected volatile Exception exc;
         protected volatile string cancelReason;
 
-        // toString may concurrently access this:
-        protected readonly Map<String, String> copiedFiles = new ConcurrentHashMap<>();
+        /// <remarks>
+        /// toString may concurrently access this:
+        /// </remarks>
+        protected readonly IDictionary<string, string> copiedFiles = new ConcurrentDictionary<string, string>();
 
         /// <exception cref="IOException"/>
         protected CopyJob(
         string reason,
-        Map<String, FileMetaData> files,
+        IDictionary<String, FileMetaData> files,
         ReplicaNode dest,
-        boolean highPriority,
+        bool highPriority,
         OnceDone onceDone)
         {
             this.reason = reason;
@@ -92,215 +102,248 @@ namespace Lucene.Net.Replicator.Nrt
             // Exceptions in here are bad:
             try
             {
-                this.toCopy = dest.getFilesToCopy(this.files);
+                this.toCopy = dest.GetFilesToCopy(this.files);
             }
-            catch (Throwable t)
+            catch (Exception t)
             {
-                cancel("exc during init", t);
+                Cancel("exc during init", t);
                 throw new CorruptIndexException("exception while checking local files", "n/a", t);
             }
         }
 
-        /** Callback invoked by CopyJob once all files have (finally) finished copying */
+        /// <summary>
+        /// Callback invoked by CopyJob once all files have (finally) finished copying
+        /// </summary>
         public interface OnceDone
         {
-            public void run(CopyJob job) throws IOException;
+            /// <exception cref="IOException"/>
+            public void run(CopyJob job);
         }
 
-        /**
-         * Transfers whatever tmp files were already copied in this previous job and cancels the previous
-         * job
-         */
-        public synchronized void transferAndCancel(CopyJob prevJob) throws IOException
+        /// <summary>
+        /// Transfers whatever tmp files were already copied in this previous job and cancels the previous
+        /// job
+        /// </summary>
+        /// <exception cref="IOException"/>
+        public void TransferAndCancel(CopyJob prevJob)
         {
-            synchronized (prevJob) {
-            dest.message("CopyJob: now transfer prevJob " + prevJob);
+            UninterruptableMonitor.Enter(this);
             try
             {
-                _transferAndCancel(prevJob);
-    }
-            catch (Throwable t)
+                lock (prevJob)
+                {
+                    dest.message("CopyJob: now transfer prevJob " + prevJob);
+                    try
+                    {
+                        _transferAndCancel(prevJob);
+                    }
+                    catch (Exception t)
+                    {
+                        dest.message("xfer: exc during transferAndCancel");
+                        cancel("exc during transferAndCancel", t);
+                        throw IOUtils.RethrowAlways(t);
+                    }
+                }
+            }
+            finally
             {
-                dest.message("xfer: exc during transferAndCancel");
-                cancel("exc during transferAndCancel", t);
-                throw IOUtils.rethrowAlways(t);
+                UninterruptableMonitor.Exit(this);
+            }
+
+        }
+        /// <exception cref="IOException"/>
+        private void _transferAndCancel(CopyJob prevJob)
+        {
+            UninterruptableMonitor.Enter(this);
+            try
+            {
+                // Caller must already be sync'd on prevJob:
+                if (Debugging.AssertsEnabled)
+                {
+                    Debugging.Assert(UninterruptableMonitor.IsEntered(prevJob));
+                }
+
+                if (prevJob.exc != null)
+                {
+                    // Already cancelled
+                    dest.message("xfer: prevJob was already cancelled; skip transfer");
+                    return;
+                }
+
+                // Cancel the previous job
+                prevJob.exc = new Exception();
+
+                // Carry over already copied files that we also want to copy
+                Iterator<Map.Entry<String, FileMetaData>> it = toCopy.iterator();
+                long bytesAlreadyCopied = 0;
+
+                // Iterate over all files we think we need to copy:
+                while (it.hasNext())
+                {
+                    Map.Entry<String, FileMetaData> ent = it.next();
+                    String fileName = ent.getKey();
+                    String prevTmpFileName = prevJob.copiedFiles.get(fileName);
+                    if (prevTmpFileName != null)
+                    {
+                        // This fileName is common to both jobs, and the old job already finished copying it (to a
+                        // temp file), so we keep it:
+                        long fileLength = ent.getValue().length;
+                        bytesAlreadyCopied += fileLength;
+                        dest.message(
+                            "xfer: carry over already-copied file "
+                                + fileName
+                                + " ("
+                                + prevTmpFileName
+                                + ", "
+                                + fileLength
+                                + " bytes)");
+                        copiedFiles.Put(fileName, prevTmpFileName);
+
+                        // So we don't try to delete it, below:
+                        prevJob.copiedFiles.Remove(fileName);
+
+                        // So it's not in our copy list anymore:
+                        it.remove();
+                    }
+                    else if (prevJob.current != null && prevJob.current.name.equals(fileName))
+                    {
+                        // This fileName is common to both jobs, and it's the file that the previous job was in the
+                        // process of copying.  In this case
+                        // we continue copying it from the prevoius job.  This is important for cases where we are
+                        // copying over a large file
+                        // because otherwise we could keep failing the NRT copy and restarting this file from the
+                        // beginning and never catch up:
+                        dest.message(
+                            "xfer: carry over in-progress file "
+                                + fileName
+                                + " ("
+                                + prevJob.current.tmpName
+                                + ") bytesCopied="
+                                + prevJob.current.getBytesCopied()
+                                + " of "
+                                + prevJob.current.bytesToCopy);
+                        bytesAlreadyCopied += prevJob.current.getBytesCopied();
+
+                        assert current == null;
+
+                        // must set current first, before writing/read to c.in/out in case that hits an exception,
+                        // so that we then close the temp
+                        // IndexOutput when cancelling ourselves:
+                        current = newCopyOneFile(prevJob.current);
+
+                        // Tell our new (primary) connection we'd like to copy this file first, but resuming from
+                        // how many bytes we already copied last time:
+                        // We do this even if bytesToCopy == bytesCopied, because we still need to readLong() the
+                        // checksum from the primary connection:
+                        assert prevJob.current.getBytesCopied() <= prevJob.current.bytesToCopy;
+
+                        prevJob.current = null;
+
+                        totBytes += current.metaData.length;
+
+                        // So it's not in our copy list anymore:
+                        it.remove();
+                    }
+                    else
+                    {
+                        dest.message("xfer: file " + fileName + " will be fully copied");
+                    }
+                }
+                dest.message("xfer: " + bytesAlreadyCopied + " bytes already copied of " + totBytes);
+
+                // Delete all temp files the old job wrote but we don't need:
+                dest.message("xfer: now delete old temp files: " + prevJob.copiedFiles.values());
+                IOUtils.deleteFilesIgnoringExceptions(dest.dir, prevJob.copiedFiles.values());
+
+                if (prevJob.current != null)
+                {
+                    IOUtils.closeWhileHandlingException(prevJob.current);
+                    if (Node.VERBOSE_FILES)
+                    {
+                        dest.message("remove partial file " + prevJob.current.tmpName);
+                    }
+                    dest.deleter.deleteNewFile(prevJob.current.tmpName);
+                    prevJob.current = null;
+                }
+            }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+            
+        }
+
+        protected abstract CopyOneFile NewCopyOneFile(CopyOneFile current);
+
+        /** Begin copying files */
+        /// <exception cref="IOException"/>
+        public abstract void Start();
+
+        /**
+         * Use current thread (blocking) to do all copying and then return once done, or throw exception
+         * on failure
+         */
+        /// <exception cref="IOException"/>
+        public abstract void RunBlocking();
+
+        /// <exception cref="IOException"/>
+        public void Cancel(String reason, Exception exc)
+        {
+            if (this.exc != null)
+            {
+                // Already cancelled
+                return;
+            }
+
+            dest.message(
+                String.Format(
+                    Locale.ROOT,
+                "top: cancel after copying %s; exc=%s:\n  files=%s\n  copiedFiles=%s",
+                Node.bytesToString(totBytesCopied),
+                exc,
+                files == null ? "null" : files.keySet(),
+                copiedFiles.keySet()));
+
+            if (exc == null)
+            {
+                exc = new Exception();
+            }
+
+            this.exc = exc;
+            this.cancelReason = reason;
+
+            // Delete all temp files we wrote:
+            IOUtils.DeleteFilesIgnoringExceptions(dest.dir, copiedFiles.values());
+
+            if (current != null)
+            {
+                IOUtils.CloseWhileHandlingException(current);
+                if (Node.VERBOSE_FILES)
+                {
+                    dest.message("remove partial file " + current.tmpName);
+                }
+                dest.deleter.deleteNewFile(current.tmpName);
+                current = null;
             }
         }
+
+        /** Return true if this job is trying to copy any of the same files as the other job */
+        public abstract bool Conflicts(CopyJob other);
+
+        /** Renames all copied (tmp) files to their true file names */
+        /// <exception cref="IOException"/>
+        public abstract void Finish();
+
+        public abstract bool GetFailed();
+
+        /** Returns only those file names (a subset of {@link #getFileNames}) that need to be copied */
+        public abstract ISet<string> GetFileNamesToCopy();
+
+        /** Returns all file names referenced in this copy job */
+        public abstract ISet<string> GetFileNames();
+
+        public abstract CopyState GetCopyState();
+
+        public abstract long GetTotalBytesCopied();
     }
-
-    private synchronized void _transferAndCancel(CopyJob prevJob) throws IOException
-{
-
-    // Caller must already be sync'd on prevJob:
-    assert Thread.holdsLock(prevJob);
-
-    if (prevJob.exc != null) {
-        // Already cancelled
-        dest.message("xfer: prevJob was already cancelled; skip transfer");
-        return;
-    }
-
-    // Cancel the previous job
-    prevJob.exc = new Throwable();
-
-// Carry over already copied files that we also want to copy
-Iterator<Map.Entry<String, FileMetaData>> it = toCopy.iterator();
-long bytesAlreadyCopied = 0;
-
-// Iterate over all files we think we need to copy:
-while (it.hasNext())
-{
-    Map.Entry<String, FileMetaData> ent = it.next();
-    String fileName = ent.getKey();
-    String prevTmpFileName = prevJob.copiedFiles.get(fileName);
-    if (prevTmpFileName != null)
-    {
-        // This fileName is common to both jobs, and the old job already finished copying it (to a
-        // temp file), so we keep it:
-        long fileLength = ent.getValue().length;
-        bytesAlreadyCopied += fileLength;
-        dest.message(
-            "xfer: carry over already-copied file "
-                + fileName
-                + " ("
-                + prevTmpFileName
-                + ", "
-                + fileLength
-                + " bytes)");
-        copiedFiles.put(fileName, prevTmpFileName);
-
-        // So we don't try to delete it, below:
-        prevJob.copiedFiles.remove(fileName);
-
-        // So it's not in our copy list anymore:
-        it.remove();
-    }
-    else if (prevJob.current != null && prevJob.current.name.equals(fileName))
-    {
-        // This fileName is common to both jobs, and it's the file that the previous job was in the
-        // process of copying.  In this case
-        // we continue copying it from the prevoius job.  This is important for cases where we are
-        // copying over a large file
-        // because otherwise we could keep failing the NRT copy and restarting this file from the
-        // beginning and never catch up:
-        dest.message(
-            "xfer: carry over in-progress file "
-                + fileName
-                + " ("
-                + prevJob.current.tmpName
-                + ") bytesCopied="
-                + prevJob.current.getBytesCopied()
-                + " of "
-                + prevJob.current.bytesToCopy);
-        bytesAlreadyCopied += prevJob.current.getBytesCopied();
-
-        assert current == null;
-
-        // must set current first, before writing/read to c.in/out in case that hits an exception,
-        // so that we then close the temp
-        // IndexOutput when cancelling ourselves:
-        current = newCopyOneFile(prevJob.current);
-
-        // Tell our new (primary) connection we'd like to copy this file first, but resuming from
-        // how many bytes we already copied last time:
-        // We do this even if bytesToCopy == bytesCopied, because we still need to readLong() the
-        // checksum from the primary connection:
-        assert prevJob.current.getBytesCopied() <= prevJob.current.bytesToCopy;
-
-        prevJob.current = null;
-
-        totBytes += current.metaData.length;
-
-        // So it's not in our copy list anymore:
-        it.remove();
-    }
-    else
-    {
-        dest.message("xfer: file " + fileName + " will be fully copied");
-    }
-}
-dest.message("xfer: " + bytesAlreadyCopied + " bytes already copied of " + totBytes);
-
-// Delete all temp files the old job wrote but we don't need:
-dest.message("xfer: now delete old temp files: " + prevJob.copiedFiles.values());
-IOUtils.deleteFilesIgnoringExceptions(dest.dir, prevJob.copiedFiles.values());
-
-if (prevJob.current != null)
-{
-    IOUtils.closeWhileHandlingException(prevJob.current);
-    if (Node.VERBOSE_FILES)
-    {
-        dest.message("remove partial file " + prevJob.current.tmpName);
-    }
-    dest.deleter.deleteNewFile(prevJob.current.tmpName);
-    prevJob.current = null;
-}
-  }
-
-  protected abstract CopyOneFile newCopyOneFile(CopyOneFile current);
-
-/** Begin copying files */
-public abstract void start() throws IOException;
-
-/**
- * Use current thread (blocking) to do all copying and then return once done, or throw exception
- * on failure
- */
-public abstract void runBlocking() throws Exception;
-
-public void cancel(String reason, Throwable exc) throws IOException
-{
-    if (this.exc != null) {
-        // Already cancelled
-        return;
-    }
-
-    dest.message(
-        String.format(
-            Locale.ROOT,
-            "top: cancel after copying %s; exc=%s:\n  files=%s\n  copiedFiles=%s",
-            Node.bytesToString(totBytesCopied),
-            exc,
-            files == null ? "null" : files.keySet(),
-            copiedFiles.keySet()));
-
-    if (exc == null) {
-        exc = new Throwable();
-    }
-
-    this.exc = exc;
-    this.cancelReason = reason;
-
-    // Delete all temp files we wrote:
-    IOUtils.deleteFilesIgnoringExceptions(dest.dir, copiedFiles.values());
-
-    if (current != null) {
-        IOUtils.closeWhileHandlingException(current);
-        if (Node.VERBOSE_FILES)
-        {
-            dest.message("remove partial file " + current.tmpName);
-        }
-        dest.deleter.deleteNewFile(current.tmpName);
-        current = null;
-    }
-}
-
-/** Return true if this job is trying to copy any of the same files as the other job */
-public abstract boolean conflicts(CopyJob other);
-
-/** Renames all copied (tmp) files to their true file names */
-public abstract void finish() throws IOException;
-
-public abstract bool getFailed();
-
-/** Returns only those file names (a subset of {@link #getFileNames}) that need to be copied */
-public abstract HashSet<string> getFileNamesToCopy();
-
-/** Returns all file names referenced in this copy job */
-public abstract HashSet<string> getFileNames();
-
-public abstract CopyState getCopyState();
-
-public abstract long getTotalBytesCopied();
-}
 }
