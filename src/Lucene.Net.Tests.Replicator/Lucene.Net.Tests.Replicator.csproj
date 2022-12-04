@@ -71,8 +71,4 @@
     <Reference Include="System.Net.Http" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Nrt\" />
-  </ItemGroup>
-
 </Project>

@@ -29,29 +29,11 @@ using Version = Lucene.Net.Util.LuceneVersion;
 using JCG = J2N.Collections.Generic;
 using Lucene;
 using Lucene.Net.Diagnostics;
-//import java.io.TextWriter;
-//import java.nio.ByteBuffer;
-//import java.util.ArrayList;
-//import java.util.Arrays;
-//import java.util.Collection;
-//import java.util.Collections;
-//import java.util.HashMap;
-//import java.util.HashSet;
-//import java.util.List;
-//import java.util.Locale;
-//import java.util.Map;
-//import java.util.Objects;
-//import java.util.Set;
-//import java.util.concurrent.ConcurrentHashMap;
-//import java.util.concurrent.ConcurrentMap;
-//import java.util.concurrent.TimeUnit;
-//import java.util.concurrent.atomic.AtomicBoolean;
+using Lucene.Net.Support;
+using System.Linq;
 
 namespace Lucene.Net.Replicator.Nrt
 {
-
-
-
     /**
      * Replica node, that pulls index changes from the primary node by copying newly flushed or merged
      * index files.
@@ -70,7 +52,7 @@ namespace Lucene.Net.Replicator.Nrt
         protected readonly ICollection<string> lastNRTFiles = new JCG.HashSet<string>();
 
         /** Currently running merge pre-copy jobs */
-        protected readonly ISet<CopyJob> mergeCopyJobs = Collections.synchronizedSet(new HashSet<>());
+        protected readonly ISet<CopyJob> mergeCopyJobs = new ConcurrentHashSet<CopyJob>();
 
         /** Non-null when we are currently copying files from a new NRT point: */
         protected CopyJob curNRTCopy;
@@ -79,7 +61,7 @@ namespace Lucene.Net.Replicator.Nrt
         private readonly Lock writeFileLock;
 
         /** Merged segment files that we pre-copied, but have not yet made visible in a new NRT point. */
-        readonly ISet<string> pendingMergeFiles = Collections.synchronizedSet(new HashSet<string>());
+        readonly ISet<string> pendingMergeFiles = new  ConcurrentHashSet<string>();
 
         /** Primary gen last time we successfully replicated: */
         protected long lastPrimaryGen;
@@ -95,7 +77,7 @@ namespace Lucene.Net.Replicator.Nrt
         public ReplicaNode(int id, Directory dir, SearcherFactory searcherFactory, TextWriter TextWriter) : base(id, dir, searcherFactory, TextWriter)
         {
 
-            if (dir.GetPendingDeletions().isEmpty() == false)
+            if (dir.GetPendingDeletions().Any())
             {
                 throw new IllegalArgumentException(
                     "Directory " + dir + " still has pending deleted files; cannot initialize IndexWriter");
@@ -118,7 +100,7 @@ namespace Lucene.Net.Replicator.Nrt
             catch (Exception t)
             {
                 Message("exc on init:");
-                t.printStackTrace(TextWriter);
+                t.PrintStackTrace(TextWriter);
                 throw t;
             }
             finally

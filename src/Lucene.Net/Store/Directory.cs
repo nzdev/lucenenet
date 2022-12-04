@@ -403,5 +403,14 @@ namespace Lucene.Net.Store
                 return Arrays.ToString(directory.ListAll());
             }
         }
+
+        ///<summary>
+        /// Returns a set of files currently pending deletion in this directory.
+        ///</summary>
+        ///<remarks>
+        /// @lucene.internal
+        ///</remarks>
+        /// <exception cref="IOException"/>
+        public abstract ISet<String> GetPendingDeletions();
     }
 }
