@@ -223,7 +223,7 @@ namespace Lucene.Net.Replicator.Nrt
             if (cache != null)
             {
                 // We may already have this file cached from the last NRT point:
-                result = cache.[fileName];
+                result = cache[fileName];
             }
             else
             {
