@@ -49,11 +49,11 @@ namespace Lucene.Net.Replicator.Nrt
          * opened, and (unlike Java's File.exists) throws IOException if there's some unexpected error.
          */
         /// <exception cref="IOException"/>
-        private static bool slowFileExists(Directory dir, string fileName)
+        private static bool SlowFileExists(Directory dir, string fileName)
         {
             try
             {
-                dir.OpenInput(fileName, IOContext.DEFAULT).Close();
+                dir.OpenInput(fileName, IOContext.DEFAULT).Dispose();
                 return true;
             }
             //@SuppressWarnings("unused")
@@ -64,7 +64,7 @@ namespace Lucene.Net.Replicator.Nrt
         }
 
         /// <exception cref="IOException"/>
-        public void incRef(ICollection<string> fileNames)
+        public void IncRef(ICollection<string> fileNames)
         {
             UninterruptableMonitor.Enter(this);
             try
@@ -73,7 +73,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     if (Debugging.AssertsEnabled)
                     {
-                        Debugging.Assert(slowFileExists(dir, fileName), "file " + fileName + " does not exist!");
+                        Debugging.Assert(SlowFileExists(dir, fileName), "file " + fileName + " does not exist!");
                     }
 
                     int curCount = refCounts.get(fileName);
@@ -95,7 +95,7 @@ namespace Lucene.Net.Replicator.Nrt
         }
 
         /// <exception cref="IOException"/>
-        public void decRef(ICollection<string> fileNames)
+        public void DecRef(ICollection<string> fileNames)
         {
             UninterruptableMonitor.Enter(this);
             try
@@ -153,7 +153,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 if (Node.VERBOSE_FILES)
                 {
-                    node.message("now delete " + toDelete.Count + " files: " + toDelete);
+                    node.Message("now delete " + toDelete.Count + " files: " + toDelete);
                 }
 
                 // First pass: delete any segments_N files.  We do these first to be certain stale commit points
@@ -202,7 +202,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 if (Node.VERBOSE_FILES)
                 {
-                    node.message("file " + fileName + ": now delete");
+                    node.Message("file " + fileName + ": now delete");
                 }
                 dir.DeleteFile(fileName);
             }
@@ -278,7 +278,7 @@ namespace Lucene.Net.Replicator.Nrt
                         && fileName.Equals("write.lock") == false
                         && fileName.Equals(segmentsFileName) == false)
                     {
-                        node.message("will delete unknown file \"" + fileName + "\"");
+                        node.Message("will delete unknown file \"" + fileName + "\"");
                         toDelete.Add(fileName);
                     }
                 }

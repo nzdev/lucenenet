@@ -19,10 +19,6 @@ using J2N.Threading.Atomic;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
-//import java.io.IOException;
-//import java.util.ArrayList;
-//import java.util.List
-//import org.apache.lucene.store.Directory;
 namespace Lucene.Net.Replicator.Nrt
 {
 
@@ -53,7 +49,7 @@ namespace Lucene.Net.Replicator.Nrt
             }
             this.searcherFactory = searcherFactory;
             currentInfos = infosIn;
-            node.message("SegmentInfosSearcherManager.init: use incoming infos=" + infosIn.ToString());
+            node.Message("SegmentInfosSearcherManager.init: use incoming infos=" + infosIn.ToString());
             Current =
                 SearcherManager.GetSearcher(
                     searcherFactory, StandardDirectoryReader.Open(dir, currentInfos, null, null), null);
@@ -92,7 +88,7 @@ namespace Lucene.Net.Replicator.Nrt
                 // So that if we commit, we will go to the next
                 // (unwritten so far) generation:
                 infos.UpdateGeneration(currentInfos);
-                node.message("mgr.setCurrentInfos: carry over infos gen=" + infos.GetSegmentsFileName());
+                node.Message("mgr.setCurrentInfos: carry over infos gen=" + infos.GetSegmentsFileName());
             }
             currentInfos = infos;
             MaybeRefresh();
@@ -118,7 +114,7 @@ namespace Lucene.Net.Replicator.Nrt
             // Open a new reader, sharing any common segment readers with the old one:
             DirectoryReader r = StandardDirectoryReader.Open(dir, currentInfos, subs, null);
             addReaderClosedListener(r);
-            node.message("refreshed to version=" + currentInfos.GetVersion() + " r=" + r);
+            node.Message("refreshed to version=" + currentInfos.GetVersion() + " r=" + r);
             return SearcherManager.GetSearcher(searcherFactory, r, old.GetIndexReader());
         }
 

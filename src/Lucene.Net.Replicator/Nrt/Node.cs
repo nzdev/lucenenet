@@ -20,15 +20,20 @@ using Lucene.Net.Store;
 using System;
 using Lucene.Net.Codecs;
 using J2N;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using Directory = Lucene.Net.Store.Directory;
+using System.Threading;
 
-import java.io.EOFException;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.nio.file.NoSuchFileException;
-import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+//import java.io.EOFException;
+//import java.io.FileNotFoundException;
+//import java.io.IOException;
+//import java.io.TextWriter;
+//import java.nio.file.NoSuchFileException;
+//import java.util.Locale;
+//import java.util.Map;
+//import java.util.concurrent.TimeUnit;
 
 
 namespace Lucene.Net.Replicator.Nrt
@@ -81,7 +86,7 @@ namespace Lucene.Net.Replicator.Nrt
         public static readonly long localStartNS = Time.NanoTime();
 
         /** For debug logging */
-        protected readonly PrintStream printStream;
+        protected readonly TextWriter TextWriter;
 
         // public static final long globalStartNS;
 
@@ -89,24 +94,24 @@ namespace Lucene.Net.Replicator.Nrt
         protected volatile String state = "idle";
 
         /** File metadata for last sync that succeeded; we use this as a cache */
-        protected volatile Map<String, FileMetaData> lastFileMetaData;
+        protected volatile IDictionary<String, FileMetaData> lastFileMetaData;
 
-        public Node(int id, Directory dir, SearcherFactory searcherFactory, PrintStream printStream)
+        public Node(int id, Directory dir, SearcherFactory searcherFactory, TextWriter TextWriter)
         {
             this.id = id;
             this.dir = dir;
             this.searcherFactory = searcherFactory;
-            this.printStream = printStream;
+            this.TextWriter = TextWriter;
         }
 
         /** Returns the {@link ReferenceManager} to use for acquiring and releasing searchers */
-        public ReferenceManager<IndexSearcher> getSearcherManager()
+        public ReferenceManager<IndexSearcher> GetSearcherManager()
         {
             return mgr;
         }
 
         /** Returns the {@link Directory} this node is writing to */
-        public Directory getDirectory()
+        public Directory GetDirectory()
         {
             return dir;
         }
@@ -117,82 +122,83 @@ namespace Lucene.Net.Replicator.Nrt
         }
 
         /// <exception cref="IOException"/>
-        public abstract void commit();
+        public abstract void Commit();
 
-        public static void nodeMessage(PrintStream printStream, String message)
+        public static void NodeMessage(TextWriter TextWriter, String message)
         {
-            if (printStream != null)
+            if (TextWriter != null)
             {
                 long now = Time.NanoTime();
-                printStream.println(
-                    String.format(
+                TextWriter.WriteLine(
+                    String.Format(
                         Locale.ROOT,
                         "%5.3fs %5.1fs:           [%11s] %s",
                         (now - globalStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
                         (now - localStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
-                        Thread.currentThread().getName(),
+                        Thread.CurrentThread.Name,
                         message));
             }
         }
 
-        public static void nodeMessage(PrintStream printStream, int id, String message)
+        public static void NodeMessage(TextWriter TextWriter, int id, String message)
         {
-            if (printStream != null)
+            if (TextWriter != null)
             {
                 long now = Time.NanoTime();
-                printStream.println(
-                    String.format(
+                TextWriter.WriteLine(
+                    String.Format(
                         Locale.ROOT,
                         "%5.3fs %5.1fs:         N%d [%11s] %s",
                         (now - globalStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
                         (now - localStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
                         id,
-                        Thread.currentThread().getName(),
+                        Thread.CurrentThread.Name,
                         message));
             }
         }
 
-        public void message(String message)
+        public void Message
+            (String message)
         {
-            if (printStream != null)
+            if (TextWriter != null)
             {
                 long now = Time.NanoTime();
-                printStream.println(
-                    String.format(
+                TextWriter.WriteLine(
+                    String.Format(
                         Locale.ROOT,
                         "%5.3fs %5.1fs: %7s %2s [%11s] %s",
                         (now - globalStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
                         (now - localStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
                         state,
-                        name(),
-                        Thread.currentThread().getName(),
+                        Name(),
+                         Thread.CurrentThread.Name,
                         message));
             }
         }
 
-        public String name()
+        public String Name()
         {
             char mode = this instanceof PrimaryNode ? 'P' : 'R';
             return mode + Integer.toString(id);
         }
 
-        public abstract bool isClosed();
+        public abstract bool IsClosed();
 
         /// <exception cref="IOException"/>
-        public long getCurrentSearchingVersion()
+        public long GetCurrentSearchingVersion()
         {
-            IndexSearcher searcher = mgr.acquire();
+            IndexSearcher searcher = mgr.Acquire();
             try
             {
-                return ((DirectoryReader)searcher.getIndexReader()).getVersion();
+                return ((DirectoryReader)searcher.GetIndexReader()).getVersion();
             }
             finally
             {
-                mgr.release(searcher);
+                mgr.Release(searcher);
             }
         }
 
-        public static String bytesToString(long bytes)
+        public static String BytesToString(long bytes)
         {
             if (bytes < 1024)
             {
@@ -200,15 +206,15 @@ namespace Lucene.Net.Replicator.Nrt
             }
             else if (bytes < 1024 * 1024)
             {
-                return String.format(Locale.ROOT, "%.1f KB", bytes / 1024.);
+                return String.Format(Locale.ROOT, "%.1f KB", bytes / 1024.);
             }
             else if (bytes < 1024 * 1024 * 1024)
             {
-                return String.format(Locale.ROOT, "%.1f MB", bytes / 1024. / 1024.);
+                return String.Format(Locale.ROOT, "%.1f MB", bytes / 1024. / 1024.);
             }
             else
             {
-                return String.format(Locale.ROOT, "%.1f GB", bytes / 1024. / 1024. / 1024.);
+                return String.Format(Locale.ROOT, "%.1f GB", bytes / 1024. / 1024. / 1024.);
             }
         }
 
@@ -222,15 +228,15 @@ namespace Lucene.Net.Replicator.Nrt
          */
 
         /// <exception cref="IOException"/>
-        public FileMetaData readLocalFileMetaData(String fileName)
+        public FileMetaData ReadLocalFileMetaData(String fileName)
         {
 
-            Map<String, FileMetaData> cache = lastFileMetaData;
+            IDictionary<String, FileMetaData> cache = lastFileMetaData;
             FileMetaData result;
             if (cache != null)
             {
                 // We may already have this file cached from the last NRT point:
-                result = cache.get(fileName);
+                result = cache.[fileName];
             }
             else
             {
@@ -244,47 +250,52 @@ namespace Lucene.Net.Replicator.Nrt
                 long length;
                 byte[] header;
                 byte[] footer;
-                try (IndexInput in = dir.openInput(fileName, IOContext.DEFAULT)) {
+                using (IndexInput @in = dir.OpenInput(fileName, IOContext.DEFAULT))
+                {
                     try
                     {
-                        length = in.length();
-                        header = CodecUtil.readIndexHeader(in);
-                        footer = CodecUtil.readFooter(in);
-                        checksum = CodecUtil.retrieveChecksum(in);
+                        length = @in.Length;
+                        header = CodecUtil.ReadIndexHeader(@in);
+                        footer = CodecUtil.ReadFooter(@in);
+                        checksum = CodecUtil.RetrieveChecksum(@in);
                     }
-                    catch (@SuppressWarnings("unused") EOFException | CorruptIndexException cie) {
+                    //@SuppressWarnings("unused")
+                    catch (Exception cie) when (cie is EOFException || cie is CorruptIndexException)
+                    {
                         // File exists but is busted: we must copy it.  This happens when node had crashed,
                         // corrupting an un-fsync'd file.  On init we try
                         // to delete such unreferenced files, but virus checker can block that, leaving this bad
                         // file.
                         if (VERBOSE_FILES)
                         {
-                            message("file " + fileName + ": will copy [existing file is corrupt]");
+                            Message("file " + fileName + ": will copy [existing file is corrupt]");
                         }
                         return null;
                     }
                     if (VERBOSE_FILES)
                     {
-                        message("file " + fileName + " has length=" + bytesToString(length));
+                        Message("file " + fileName + " has length=" + BytesToString(length));
                     }
-                    }
-                    catch (@SuppressWarnings("unused") FileNotFoundException | NoSuchFileException e) {
-                        if (VERBOSE_FILES)
-                        {
-                            message("file " + fileName + ": will copy [file does not exist]");
-                        }
-                        return null;
-                    }
-
-                    // NOTE: checksum is redundant w/ footer, but we break it out separately because when the bits
-                    // cross the wire we need direct access to
-                    // checksum when copying to catch bit flips:
-                    result = new FileMetaData(header, footer, length, checksum);
-                    }
-
-                    return result;
                 }
+                //@SuppressWarnings("unused")
+                    catch (Exception e) when (e is FileNotFoundException || e is NoSuchFileException)
+                {
+                    if (VERBOSE_FILES)
+                    {
+                        Message("file " + fileName + ": will copy [file does not exist]");
+                    }
+                    return null;
                 }
 
+                // NOTE: checksum is redundant w/ footer, but we break it out separately because when the bits
+                // cross the wire we need direct access to
+                // checksum when copying to catch bit flips:
+                result = new FileMetaData(header, footer, length, checksum);
             }
+
+            return result;
+        }
+    }
+
+}
     }

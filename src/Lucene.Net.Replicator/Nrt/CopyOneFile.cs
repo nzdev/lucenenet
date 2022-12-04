@@ -57,7 +57,7 @@ namespace Lucene.Net.Replicator.Nrt
 
             if (Node.VERBOSE_FILES)
             {
-                dest.message(
+                dest.Message(
                     "file "
                         + name
                         + ": start copying to tmp file "
@@ -106,7 +106,7 @@ namespace Lucene.Net.Replicator.Nrt
                     if (checksum != metaData.checksum)
                     {
                         // Bits flipped during copy!
-                        dest.message(
+                        dest.Message(
                             "file "
                                 + tmpName
                                 + ": checksum mismatch after copy (bits flipped during network copy?) after-copy checksum="
@@ -123,7 +123,7 @@ namespace Lucene.Net.Replicator.Nrt
                     long actualChecksumIn = CodecUtil.readBELong(in);
                     if (actualChecksumIn != checksum)
                     {
-                        dest.message(
+                        dest.Message(
                             "file "
                                 + tmpName
                                 + ": checksum claimed by primary disagrees with the file's footer: claimed checksum="
@@ -138,12 +138,12 @@ namespace Lucene.Net.Replicator.Nrt
 
                     if (Node.VERBOSE_FILES)
                     {
-                        dest.message(
+                        dest.Message(
                             String.Format(
                                 Locale.ROOT,
                                 "file %s: done copying [%s, %.3fms]",
                                 name,
-                                Node.bytesToString(metaData.length),
+                                Node.BytesToString(metaData.length),
                                 (Time.NanoTime() - copyStartNS) / (double)TimeUnit.MILLISECONDS.toNanos(1)));
                     }
 

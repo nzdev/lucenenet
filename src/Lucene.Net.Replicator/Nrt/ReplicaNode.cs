@@ -25,7 +25,7 @@ using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
 
-//import java.io.PrintStream;
+//import java.io.TextWriter;
 //import java.nio.ByteBuffer;
 //import java.util.ArrayList;
 //import java.util.Arrays;
@@ -86,9 +86,9 @@ namespace Lucene.Net.Replicator.Nrt
         /// <param name="id"></param>
         /// <param name="dir"></param>
         /// <param name="searcherFactory"></param>
-        /// <param name="printStream"></param>
+        /// <param name="TextWriter"></param>
         /// <exception cref="IOException"/>
-        public ReplicaNode(int id, Directory dir, SearcherFactory searcherFactory, PrintStream printStream) : base(id, dir, searcherFactory, printStream)
+        public ReplicaNode(int id, Directory dir, SearcherFactory searcherFactory, TextWriter TextWriter) : base(id, dir, searcherFactory, TextWriter)
         {
 
             if (dir.getPendingDeletions().isEmpty() == false)
@@ -113,8 +113,8 @@ namespace Lucene.Net.Replicator.Nrt
             }
             catch (Exception t)
             {
-                message("exc on init:");
-                t.printStackTrace(printStream);
+                Message("exc on init:");
+                t.printStackTrace(TextWriter);
                 throw t;
             }
             finally
@@ -139,7 +139,7 @@ namespace Lucene.Net.Replicator.Nrt
                 throw new IllegalStateException("already started");
             }
 
-            message("top: now start");
+            Message("top: now start");
             try
             {
 
@@ -172,11 +172,11 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     // No index here yet:
                     infos = new SegmentInfos(Version.LATEST.major);
-                    message("top: init: no segments in index");
+                    Message("top: init: no segments in index");
                 }
                 else
                 {
-                    message("top: init: read existing segments commit " + segmentsFileName);
+                    Message("top: init: read existing segments commit " + segmentsFileName);
                     infos = SegmentInfos.ReadCommit(dir, segmentsFileName);
                     message("top: init: segments: " + infos.ToString() + " version=" + infos.FetVersion());
                     Collection<String> indexFiles = infos.files(false);
@@ -209,7 +209,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     myPrimaryGen = Long.parseLong(s);
                 }
-                message("top: myPrimaryGen=" + myPrimaryGen);
+                Message("top: myPrimaryGen=" + myPrimaryGen);
 
                 boolean doCommit;
 
@@ -241,7 +241,7 @@ namespace Lucene.Net.Replicator.Nrt
                     // sure the index is never even in an "apparently" corrupt state (where an old segments_N
                     // references invalid files) we forcefully
                     // remove the commit now, and refuse to start the replica if this delete fails:
-                    message("top: now delete starting commit point " + segmentsFileName);
+                    Message("top: now delete starting commit point " + segmentsFileName);
 
                     // If this throws exc (e.g. due to virus checker), we cannot start this replica:
                     assert deleter.GetRefCount(segmentsFileName) == 1;
@@ -266,14 +266,14 @@ namespace Lucene.Net.Replicator.Nrt
                     {
                         job =
                             newCopyJob(
-                                "sync on startup replica=" + name() + " myVersion=" + infos.getVersion(),
+                                "sync on startup replica=" + Name() + " myVersion=" + infos.getVersion(),
                                 null,
                                 null,
                                 true,
                                 null);
                         job.start();
 
-                        message("top: init: sync sis.version=" + job.GetCopyState().version);
+                        Message("top: init: sync sis.version=" + job.GetCopyState().version);
 
                         // Force this copy job to finish while we wait, now.  Note that this can be very time
                         // consuming!
@@ -293,7 +293,7 @@ namespace Lucene.Net.Replicator.Nrt
                             if (ioe.getMessage().contains("checksum mismatch after file copy"))
                             {
                                 // OK-ish
-                                message("top: failed to copy: " + ioe + "; retrying");
+                                Message("top: failed to copy: " + ioe + "; retrying");
                             }
                             else
                             {
@@ -314,7 +314,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                     assert infos.GetVersion() == job.GetCopyState().version;
                     message("  version=" + infos.getVersion() + " segments=" + infos.toString());
-                    message("top: init: incRef nrtFiles=" + job.GetFileNames());
+                    Message("top: init: incRef nrtFiles=" + job.GetFileNames());
                     deleter.incRef(job.GetFileNames());
                     message("top: init: decRef lastNRTFiles=" + lastNRTFiles);
                     deleter.decRef(lastNRTFiles);
@@ -339,7 +339,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     doCommit = false;
                     lastPrimaryGen = curPrimaryGen;
-                    message("top: same primary as before");
+                    Message("top: same primary as before");
                 }
 
                 if (infos.getGeneration() < maxPendingGen)
@@ -362,18 +362,18 @@ namespace Lucene.Net.Replicator.Nrt
                     // Very important to commit what we just sync'd over, because we removed the pre-existing
                     // commit point above if we had to
                     // overwrite any files it referenced:
-                    commit();
+                    base.Commit();
                 }
 
-                message("top: done start");
+                Message("top: done start");
                 state = "idle";
             }
             catch (Exception t)
             {
                 if (Objects.toString(t.GetMessage()).startsWith("replica cannot start") == false)
                 {
-                    message("exc on start:");
-                    t.printStackTrace(printStream);
+                    Message("exc on start:");
+                    t.printStackTrace(TextWriter);
                 }
                 else
                 {
@@ -413,7 +413,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 Map<String, String> commitData = new HashMap<>();
                 commitData.put(PRIMARY_GEN_KEY, Long.toString(lastPrimaryGen));
-                commitData.put(VERSION_KEY, Long.toString(getCurrentSearchingVersion()));
+                commitData.put(VERSION_KEY, Long.toString(GetCurrentSearchingVersion()));
                 infos.SetUserData(commitData, false);
 
                 // write and fsync a new segments_N
@@ -447,7 +447,7 @@ namespace Lucene.Net.Replicator.Nrt
         protected void finishNRTCopy(CopyJob job, long startNS)
         {
             CopyState copyState = job.GetCopyState();
-            message(
+            Message(
                 "top: finishNRTCopy: version="
                     + copyState.version
                     + (job.GetFailed() ? " FAILED" : "")
@@ -467,7 +467,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 if (curNRTCopy == job)
                 {
-                    message("top: now clear curNRTCopy; job=" + job);
+                    Message("top: now clear curNRTCopy; job=" + job);
                     curNRTCopy = null;
                 }
                 else
@@ -518,7 +518,7 @@ namespace Lucene.Net.Replicator.Nrt
                 // in an NRT point:
                 if (copyState.completedMergeFiles.isEmpty() == false)
                 {
-                    message("now remove-if-not-ref'd completed merge files: " + copyState.completedMergeFiles);
+                    Message("now remove-if-not-ref'd completed merge files: " + copyState.completedMergeFiles);
                     foreach (string fileName in copyState.completedMergeFiles)
                     {
                         if (pendingMergeFiles.Contains(fileName))
@@ -593,7 +593,7 @@ namespace Lucene.Net.Replicator.Nrt
         public synchronized CopyJob NewNRTPoint(long newPrimaryGen, long version)
         {
 
-            if (isClosed())
+            if (IsClosed())
             {
                 throw new AlreadyClosedException("this replica is closed: state=" + state);
             }
@@ -617,14 +617,14 @@ namespace Lucene.Net.Replicator.Nrt
                 state = "syncing";
             }
 
-            long curVersion = getCurrentSearchingVersion();
+            long curVersion = GetCurrentSearchingVersion();
 
-            message("top: start sync sis.version=" + version);
+            Message("top: start sync sis.version=" + version);
 
             if (version == curVersion)
             {
                 // Caller releases the CopyState:
-                message("top: new NRT point has same version as current; skipping");
+                Message("top: new NRT point has same version as current; skipping");
                 return null;
             }
 
@@ -632,7 +632,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 // This can happen, if two syncs happen close together, and due to thread scheduling, the
                 // incoming older version runs after the newer version
-                message(
+                Message(
                     "top: new NRT point (version="
                         + version
                         + ") is older than current (version="
@@ -643,7 +643,7 @@ namespace Lucene.Net.Replicator.Nrt
 
             final long startNS = Time.NanoTime();
 
-            message("top: newNRTPoint");
+            Message("top: newNRTPoint");
             CopyJob job = null;
             try
             {
@@ -670,7 +670,7 @@ namespace Lucene.Net.Replicator.Nrt
 {
     // E.g. primary could crash/close when we are asking it for the copy state:
     message("top: ignoring communication exception creating CopyJob: " + nce);
-    // nce.printStackTrace(printStream);
+    // nce.printStackTrace(TextWriter);
     if (state.equals("syncing"))
     {
         state = "idle";
@@ -723,7 +723,7 @@ catch (NodeCommunicationException nce)
 {
     // E.g. primary could crash/close when we are asking it for the copy state:
     message("top: ignoring exception starting CopyJob: " + nce);
-    nce.printStackTrace(printStream);
+    nce.printStackTrace(TextWriter);
     if (state.equals("syncing"))
     {
         state = "idle";

@@ -132,14 +132,14 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 lock (prevJob)
                 {
-                    dest.message("CopyJob: now transfer prevJob " + prevJob);
+                    dest.Message("CopyJob: now transfer prevJob " + prevJob);
                     try
                     {
                         _transferAndCancel(prevJob);
                     }
                     catch (Exception t)
                     {
-                        dest.message("xfer: exc during transferAndCancel");
+                        dest.Message("xfer: exc during transferAndCancel");
                         Cancel("exc during transferAndCancel", t);
                         throw IOUtils.RethrowAlways(t);
                     }
@@ -166,7 +166,7 @@ namespace Lucene.Net.Replicator.Nrt
                 if (prevJob.exc != null)
                 {
                     // Already cancelled
-                    dest.message("xfer: prevJob was already cancelled; skip transfer");
+                    dest.Message("xfer: prevJob was already cancelled; skip transfer");
                     return;
                 }
 
@@ -191,7 +191,7 @@ namespace Lucene.Net.Replicator.Nrt
                         // temp file), so we keep it:
                         long fileLength = ent.Value.length;
                         bytesAlreadyCopied += fileLength;
-                        dest.message(
+                        dest.Message(
                             "xfer: carry over already-copied file "
                                 + fileName
                                 + " ("
@@ -254,13 +254,13 @@ namespace Lucene.Net.Replicator.Nrt
                     }
                     else
                     {
-                        dest.message("xfer: file " + fileName + " will be fully copied");
+                        dest.Message("xfer: file " + fileName + " will be fully copied");
                     }
                 }
-                dest.message("xfer: " + bytesAlreadyCopied + " bytes already copied of " + totBytes);
+                dest.Message("xfer: " + bytesAlreadyCopied + " bytes already copied of " + totBytes);
 
                 // Delete all temp files the old job wrote but we don't need:
-                dest.message("xfer: now delete old temp files: " + prevJob.copiedFiles.Values);
+                dest.Message("xfer: now delete old temp files: " + prevJob.copiedFiles.Values);
                 IOUtils.DeleteFilesIgnoringExceptions(dest.dir, prevJob.copiedFiles.Values);
 
                 if (prevJob.current != null)
@@ -268,7 +268,7 @@ namespace Lucene.Net.Replicator.Nrt
                     IOUtils.CloseWhileHandlingException(prevJob.current);
                     if (Node.VERBOSE_FILES)
                     {
-                        dest.message("remove partial file " + prevJob.current.tmpName);
+                        dest.Message("remove partial file " + prevJob.current.tmpName);
                     }
                     dest.deleter.deleteNewFile(prevJob.current.tmpName);
                     prevJob.current = null;
@@ -303,11 +303,11 @@ namespace Lucene.Net.Replicator.Nrt
                 return;
             }
 
-            dest.message(
+            dest.Message(
                 String.Format(
                     Locale.ROOT,
                 "top: cancel after copying %s; exc=%s:\n  files=%s\n  copiedFiles=%s",
-                Node.bytesToString(totBytesCopied),
+                Node.BytesToString(totBytesCopied),
                 exc,
                 files == null ? "null" : files.Keys,
                 copiedFiles.Keys));
@@ -328,7 +328,7 @@ namespace Lucene.Net.Replicator.Nrt
                 IOUtils.CloseWhileHandlingException(current);
                 if (Node.VERBOSE_FILES)
                 {
-                    dest.message("remove partial file " + current.tmpName);
+                    dest.Message("remove partial file " + current.tmpName);
                 }
                 dest.deleter.deleteNewFile(current.tmpName);
                 current = null;

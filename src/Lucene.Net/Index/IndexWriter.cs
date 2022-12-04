@@ -3382,7 +3382,7 @@ namespace Lucene.Net.Index
                         JCG.HashSet<string> copiedFiles = new JCG.HashSet<string>();
                         foreach (SegmentCommitInfo info in sis.Segments)
                         {
-                            if (Debugging.AssertsEnabled) Debugging.Assert(!infos.Contains(info),"dup info dir={0} name={1}", info.Info.Dir, info.Info.Name);
+                            if (Debugging.AssertsEnabled) Debugging.Assert(!infos.Contains(info), "dup info dir={0} name={1}", info.Info.Dir, info.Info.Name);
 
                             string newSegName = NewSegmentName();
 
@@ -4439,7 +4439,7 @@ namespace Lucene.Net.Index
                 // when entering the method, all iterators must already be beyond the
                 // deleted document, or right on it, in which case we advance them over
                 // and they must be beyond it now.
-                if (Debugging.AssertsEnabled) Debugging.Assert(iter.Doc > deletedDoc,"updateDoc={0} deletedDoc={1}", iter.Doc, deletedDoc);
+                if (Debugging.AssertsEnabled) Debugging.Assert(iter.Doc > deletedDoc, "updateDoc={0} deletedDoc={1}", iter.Doc, deletedDoc);
             }
         }
 
@@ -5986,7 +5986,7 @@ namespace Lucene.Net.Index
                 UninterruptableMonitor.Enter(this);
                 try
                 {
-                    if (Debugging.AssertsEnabled) Debugging.Assert(lastCommitChangeCount <= changeCount,"lastCommitChangeCount={0} changeCount={1}", lastCommitChangeCount, changeCount);
+                    if (Debugging.AssertsEnabled) Debugging.Assert(lastCommitChangeCount <= changeCount, "lastCommitChangeCount={0} changeCount={1}", lastCommitChangeCount, changeCount);
 
                     if (pendingCommitChangeCount == lastCommitChangeCount)
                     {
@@ -6101,6 +6101,28 @@ namespace Lucene.Net.Index
                 HandleOOM(oom, "StartCommit");
             }
             if (Debugging.AssertsEnabled) Debugging.Assert(TestPoint("finishStartCommit"));
+        }
+
+        /**
+  * If {@link DirectoryReader#open(IndexWriter)} has been called (ie, this writer is in near
+  * real-time mode), then after a merge completes, this class can be invoked to warm the reader on
+  * the newly merged segment, before the merge commits. This is not required for near real-time
+  * search, but will reduce search latency on opening a new near real-time reader after a merge
+  * completes.
+  *
+  * @lucene.experimental
+  *     <p><b>NOTE</b>: {@link #warm(LeafReader)} is called before any deletes have been carried
+  *     over to the merged segment.
+  */
+        // @FunctionalInterface
+        public interface IndexReaderWarmer
+        {
+            /**
+             * Invoked on the {@link LeafReader} for the newly merged segment, before that segment is made
+             * visible to near-real-time readers.
+             */
+            /// <exception cref="IOException"/>
+            void Warm(LeafReader reader);
         }
 
         /// <summary>

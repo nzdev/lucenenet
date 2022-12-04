@@ -22,7 +22,7 @@ using Lucene.Net.Store;
 using Lucene.Net.Support.Threading;
 using Lucene.Net.Util;
 //import java.io.IOException;
-//import java.io.PrintStream;
+//import java.io.TextWriter;
 //import java.util.Collections;
 //import java.util.HashMap;
 //import java.util.HashSet;
@@ -75,10 +75,10 @@ namespace Lucene.Net.Replicator.Nrt
             long primaryGen,
             long forcePrimaryVersion,
             SearcherFactory searcherFactory,
-            PrintStream printStream)
+            TextWriter TextWriter)
         {
-            super(id, writer.getDirectory(), searcherFactory, printStream);
-            message("top: now init primary");
+            super(id, writer.getDirectory(), searcherFactory, TextWriter);
+            Message("top: now init primary");
             this.writer = writer;
             this.primaryGen = primaryGen;
 
@@ -109,7 +109,7 @@ namespace Lucene.Net.Replicator.Nrt
                 if (commitData.get(VERSION_KEY) == null)
                 {
                     commitData.put(VERSION_KEY, "0");
-                    message("add initial commitData version=0");
+                    Message("add initial commitData version=0");
                 }
                 else
                 {
@@ -123,7 +123,7 @@ namespace Lucene.Net.Replicator.Nrt
                 // results:
                 if (forcePrimaryVersion != -1)
                 {
-                    message("now forcePrimaryVersion to version=" + forcePrimaryVersion);
+                    Message("now forcePrimaryVersion to version=" + forcePrimaryVersion);
                     writer.advanceSegmentInfosVersion(forcePrimaryVersion);
                 }
 
@@ -134,8 +134,8 @@ namespace Lucene.Net.Replicator.Nrt
             }
             catch (Exception t)
             {
-                message("init: exception");
-                t.printStackTrace(printStream);
+                Message("init: exception");
+                t.printStackTrace(TextWriter);
                 throw new RuntimeException(t);
             }
         }
@@ -166,7 +166,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         public bool flushAndRefresh()
         {
-            message("top: now flushAndRefresh");
+            Message("top: now flushAndRefresh");
             Set<String> completedMergeFiles;
             synchronized(finishedMergedFiles) {
                 completedMergeFiles = Set.copyOf(finishedMergedFiles);
@@ -243,7 +243,7 @@ namespace Lucene.Net.Replicator.Nrt
 
 
         /// <exception cref="IOException"/>
-        public override void commit()
+        public override void Commit()
         {
             Map<String, String> commitData = new HashMap<>();
             commitData.put(PRIMARY_GEN_KEY, Long.toString(primaryGen));
@@ -291,7 +291,7 @@ namespace Lucene.Net.Replicator.Nrt
             assert count >= 0;
         }
 
-        public override bool isClosed()
+        public override bool IsClosed()
         {
             return isClosed(false);
         }
@@ -413,7 +413,7 @@ namespace Lucene.Net.Replicator.Nrt
                         {
                             return;
                         }
-                        message("pendingCopies: " + count);
+                        Message("pendingCopies: " + count);
 
                         try
                         {
@@ -436,7 +436,7 @@ namespace Lucene.Net.Replicator.Nrt
         public override void Dispose()
         {
             state = "closing";
-            message("top: close primary");
+            Message("top: close primary");
 
             lock (this)
             {
