@@ -20,6 +20,7 @@ using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Support.Threading;
+using System.Collections.Generic;
 
 namespace Lucene.Net.Replicator.Nrt
 {
@@ -55,22 +56,22 @@ namespace Lucene.Net.Replicator.Nrt
             Current =
                 SearcherManager.GetSearcher(
                     searcherFactory, StandardDirectoryReader.Open(dir, currentInfos, null, null), null);
-            addReaderClosedListener(Current.GetIndexReader());
+            AddReaderClosedListener(Current.GetIndexReader());
         }
 
         protected override int GetRefCount(IndexSearcher s)
         {
-            return s.GetIndexReader().getRefCount();
+            return s.GetIndexReader().RefCount;
         }
 
         protected override bool TryIncRef(IndexSearcher s)
         {
-            return s.GetIndexReader().tryIncRef();
+            return s.GetIndexReader().TryIncRef();
         }
         /// <exception cref="IOException"/>
         protected override void DecRef(IndexSearcher s)
         {
-            s.GetIndexReader().decRef();
+            s.GetIndexReader().DecRef();
         }
 
         public SegmentInfos GetCurrentInfos()
@@ -99,28 +100,28 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         protected override IndexSearcher RefreshIfNeeded(IndexSearcher old)
         {
-            List<LeafReader> subs;
+            IList<LeafReader> subs;
             if (old == null)
             {
                 subs = null;
             }
             else
             {
-                subs = new ArrayList<>();
-                for (LeafReaderContext ctx : old.GetIndexReader().leaves())
+                subs = new List<LeafReader>();
+                foreach (LeafReaderContext ctx in old.GetIndexReader().Leaves())
                 {
-                    subs.add(ctx.reader());
+                    subs.Add(ctx.Reader());
                 }
             }
 
             // Open a new reader, sharing any common segment readers with the old one:
             DirectoryReader r = StandardDirectoryReader.Open(dir, currentInfos, subs, null);
-            addReaderClosedListener(r);
+            AddReaderClosedListener(r);
             node.Message("refreshed to version=" + currentInfos.GetVersion() + " r=" + r);
             return SearcherManager.GetSearcher(searcherFactory, r, old.GetIndexReader());
         }
 
-        private void addReaderClosedListener(IndexReader r)
+        private void AddReaderClosedListener(IndexReader r)
         {
             IndexReader.CacheHelper cacheHelper = r.GetReaderCacheHelper();
             if (cacheHelper == null)
@@ -133,7 +134,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                       public override void onClose(IndexReader.CacheKey cacheKey)
         {
-            onReaderClosed();
+            OnReaderClosed();
         }
     });
   }
@@ -142,7 +143,7 @@ namespace Lucene.Net.Replicator.Nrt
  * Tracks how many readers are still open, so that when we are closed, we can additionally wait
  * until all in-flight searchers are closed.
  */
-void onReaderClosed()
+void OnReaderClosed()
 {
     UninterruptableMonitor.Enter(this);
     try

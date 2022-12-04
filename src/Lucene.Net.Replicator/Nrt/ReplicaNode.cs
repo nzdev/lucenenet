@@ -222,8 +222,10 @@ namespace Lucene.Net.Replicator.Nrt
 
                 if (infos.Size() > 0 && myPrimaryGen != -1 && myPrimaryGen != curPrimaryGen)
                 {
-
-                    assert myPrimaryGen<curPrimaryGen;
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(myPrimaryGen < curPrimaryGen);
+                    }
 
                     // Primary changed while we were down.  In this case, we must sync from primary before
                     // opening a reader, because it's possible current
@@ -303,7 +305,7 @@ namespace Lucene.Net.Replicator.Nrt
                         catch (IOException ioe)
                         {
                             job.Cancel("startup failed", ioe);
-                            if (ioe.GetMessage().contains("checksum mismatch after file copy"))
+                            if (ioe.Message.contains("checksum mismatch after file copy"))
                             {
                                 // OK-ish
                                 Message("top: failed to copy: " + ioe + "; retrying");
