@@ -185,7 +185,7 @@ namespace Lucene.Net.Replicator.Nrt
                     {
                         Message("top: init: read existing segments commit " + segmentsFileName);
                         infos = SegmentInfos.ReadCommit(dir, segmentsFileName);
-                        Message("top: init: segments: " + infos.ToString() + " version=" + infos.FetVersion());
+                        Message("top: init: segments: " + infos.ToString() + " version=" + infos.GetVersion());
                         ICollection<string> indexFiles = infos.files(false);
 
                         lastCommitFiles.Add(segmentsFileName);
