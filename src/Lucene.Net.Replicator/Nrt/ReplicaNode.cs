@@ -286,7 +286,7 @@ namespace Lucene.Net.Replicator.Nrt
                         while (true)
                         {
                             job =
-                                newCopyJob(
+                                NewCopyJob(
                                     "sync on startup replica=" + Name() + " myVersion=" + infos.getVersion(),
                                     null,
                                     null,
@@ -513,7 +513,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     if (Debugging.AssertsEnabled)
                     {
-                        Debugging.Assert(job.getFailed());
+                        Debugging.Assert(job.GetFailed());
                     }
                     Message("top: skip clear curNRTCopy: we were cancelled; job=" + job);
                 }
@@ -541,7 +541,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 // Must first incRef new NRT files, then decRef old ones, to make sure we don't remove an NRT
                 // file that's in common to both:
-                ICollection<string> newFiles = copyState.files.keySet();
+                ICollection<string> newFiles = copyState.files.Keys;
                 Message("top: incRef newNRTFiles=" + newFiles);
                 deleter.IncRef(newFiles);
 
@@ -604,8 +604,8 @@ namespace Lucene.Net.Replicator.Nrt
         private ChecksumIndexInput toIndexInput(byte[] input)
         {
             return new BufferedChecksumIndexInput(
-                new ByteBuffersIndexInput(
-                    new ByteBuffersDataInput(Arrays.AsList(ByteBuffer.wrap(input))), "SegmentInfos"));
+                new ByteBufferIndexInput(
+                    new ByteBufferDataInput(Arrays.AsList(ByteBuffer.wrap(input))), "SegmentInfos"));
         }
 
         /**
