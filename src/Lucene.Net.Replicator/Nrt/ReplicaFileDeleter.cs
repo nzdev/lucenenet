@@ -20,25 +20,20 @@ using Lucene.Net.Store;
 using System.Collections.Generic;
 using System;
 using Lucene.Net.Support.Threading;
-using J2N.Text;
-
+using Lucene.Net.Diagnostics;
+using System.IO;
+using JCG = J2N.Collections.Generic;
+using Directory = Lucene.Net.Store.Directory;
 namespace Lucene.Net.Replicator.Nrt
 {
 
-    import java.io.FileNotFoundException;
-    import java.io.IOException;
-    import java.nio.file.NoSuchFileException;
-    import java.util.Collection;
-    import java.util.HashMap;
-    import java.util.HashSet;
-    import java.util.Map;
-    import java.util.Set;
+
 
     // TODO: can we factor/share with IFD: this is doing exactly the same thing, but on the replica side
 
     class ReplicaFileDeleter
     {
-        private readonly Map<String, Integer> refCounts = new HashMap<String, Integer>();
+        private readonly IDictionary<string, int?> refCounts = new Dictionary<string, int?>();
         private readonly Directory dir;
         private readonly Node node;
 
@@ -58,26 +53,30 @@ namespace Lucene.Net.Replicator.Nrt
         {
             try
             {
-                dir.openInput(fileName, IOContext.DEFAULT).close();
+                dir.OpenInput(fileName, IOContext.DEFAULT).Close();
                 return true;
             }
-            catch (@SuppressWarnings("unused") NoSuchFileException | FileNotFoundException e) {
+            //@SuppressWarnings("unused")
+            catch (Exception e) when (e is NoSuchFileException || e is FileNotFoundException)
+            {
                 return false;
             }
         }
 
         /// <exception cref="IOException"/>
-        public void incRef(Collection<String> fileNames)
+        public void incRef(ICollection<string> fileNames)
         {
             UninterruptableMonitor.Enter(this);
             try
             {
                 foreach (string fileName in fileNames)
                 {
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(slowFileExists(dir, fileName), "file " + fileName + " does not exist!");
+                    }
 
-                    assert slowFileExists(dir, fileName) : "file " + fileName + " does not exist!";
-
-                    Integer curCount = refCounts.get(fileName);
+                    int curCount = refCounts.get(fileName);
                     if (curCount == null)
                     {
                         refCounts.put(fileName, 1);
@@ -92,25 +91,29 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 UninterruptableMonitor.Exit(this);
             }
-            
+
         }
 
         /// <exception cref="IOException"/>
-        public void decRef(Collection<String> fileNames)
+        public void decRef(ICollection<string> fileNames)
         {
             UninterruptableMonitor.Enter(this);
             try
             {
-                Set<String> toDelete = new HashSet<>();
+                ISet<string> toDelete = new JCG.HashSet<string>();
                 foreach (string fileName in fileNames)
                 {
-                    Integer curCount = refCounts.get(fileName);
-                    assert curCount != null : "fileName=" + fileName;
-                    assert curCount.intValue() > 0;
-                    if (curCount.intValue() == 1)
+                    int? curCount = refCounts[fileName];
+                    if (Debugging.AssertsEnabled)
                     {
-                        refCounts.remove(fileName);
-                        toDelete.add(fileName);
+                        Debugging.Assert(curCount != null, "fileName=" + fileName);
+                        Debugging.Assert(curCount.Value > 0);
+                    }
+                    
+                    if (curCount.Value == 1)
+                    {
+                        refCounts.Remove(fileName);
+                        toDelete.Add(fileName);
                     }
                     else
                     {
@@ -118,7 +121,7 @@ namespace Lucene.Net.Replicator.Nrt
                     }
                 }
 
-                delete(toDelete);
+                Delete(toDelete);
 
                 // TODO: this local IR could incRef files here, like we do now with IW's NRT readers ... then we
                 // can assert this again:
@@ -139,18 +142,18 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 UninterruptableMonitor.Exit(this);
             }
-           
+
         }
 
         /// <exception cref="IOException"/>
-        private void delete(Collection<String> toDelete)
+        private void Delete(ICollection<String> toDelete)
         {
             UninterruptableMonitor.Enter(this);
             try
             {
                 if (Node.VERBOSE_FILES)
                 {
-                    node.message("now delete " + toDelete.size() + " files: " + toDelete);
+                    node.message("now delete " + toDelete.Count + " files: " + toDelete);
                 }
 
                 // First pass: delete any segments_N files.  We do these first to be certain stale commit points
@@ -158,8 +161,12 @@ namespace Lucene.Net.Replicator.Nrt
                 // before we remove any files they reference, in case we crash right now:
                 foreach (string fileName in toDelete)
                 {
-                    assert refCounts.containsKey(fileName) == false;
-                    if (fileName.startsWith(IndexFileNames.SEGMENTS))
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(refCounts.ContainsKey(fileName) == false);
+                    }
+
+                    if (fileName.StartsWith(IndexFileNames.SEGMENTS))
                     {
                         delete(fileName);
                     }
@@ -169,8 +176,12 @@ namespace Lucene.Net.Replicator.Nrt
                 // leave a corrupt commit in the index even in the presense of virus checkers:
                 foreach (string fileName in toDelete)
                 {
-                    assert refCounts.containsKey(fileName) == false;
-                    if (fileName.startsWith(IndexFileNames.SEGMENTS) == false)
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(refCounts.ContainsKey(fileName) == false);
+                    }
+
+                    if (fileName.StartsWith(IndexFileNames.SEGMENTS) == false)
                     {
                         delete(fileName);
                     }
@@ -180,7 +191,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 UninterruptableMonitor.Exit(this);
             }
-            
+
         }
 
         /// <exception cref="IOException"/>
@@ -193,7 +204,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     node.message("file " + fileName + ": now delete");
                 }
-                dir.deleteFile(fileName);
+                dir.DeleteFile(fileName);
             }
             finally
             {
@@ -201,14 +212,14 @@ namespace Lucene.Net.Replicator.Nrt
             }
         }
 
-        public int getRefCount(string fileName)
+        public int GetRefCount(string fileName)
         {
             UninterruptableMonitor.Enter(this);
             try
             {
-                if (refCounts.containsKey(fileName) == false)
+                if (refCounts.ContainsKey(fileName) == false)
                 {
-                    return refCounts.get(fileName);
+                    return refCounts[fileName];
                 }
             }
             finally
@@ -218,14 +229,14 @@ namespace Lucene.Net.Replicator.Nrt
         }
 
         /// <exception cref="IOException"/>
-        public void deleteIfNoRef(string fileName)
+        public void DeleteIfNoRef(string fileName)
         {
             UninterruptableMonitor.Enter(this);
             try
             {
-                if (refCounts.containsKey(fileName) == false)
+                if (refCounts.ContainsKey(fileName) == false)
                 {
-                    deleteNewFile(fileName);
+                    DeleteNewFile(fileName);
                 }
             }
             finally
@@ -235,7 +246,7 @@ namespace Lucene.Net.Replicator.Nrt
         }
 
         /// <exception cref="IOException"/>
-        public void deleteNewFile(string fileName)
+        public void DeleteNewFile(string fileName)
         {
             UninterruptableMonitor.Enter(this);
             try
@@ -255,24 +266,24 @@ namespace Lucene.Net.Replicator.Nrt
         */
 
         /// <exception cref="IOException"/>
-        public void deleteUnknownFiles(string segmentsFileName)
+        public void DeleteUnknownFiles(string segmentsFileName)
         {
             UninterruptableMonitor.Enter(this);
             try
             {
-                Set<String> toDelete = new HashSet<>();
-                foreach (string fileName in dir.listAll())
+                ISet<String> toDelete = new JCG.HashSet<string>();
+                foreach (string fileName in dir.ListAll())
                 {
-                    if (refCounts.containsKey(fileName) == false
+                    if (refCounts.ContainsKey(fileName) == false
                         && fileName.Equals("write.lock") == false
                         && fileName.Equals(segmentsFileName) == false)
                     {
                         node.message("will delete unknown file \"" + fileName + "\"");
-                        toDelete.add(fileName);
+                        toDelete.Add(fileName);
                     }
                 }
 
-                delete(toDelete);
+                Delete(toDelete);
             }
             finally
             {
