@@ -140,7 +140,7 @@ namespace Lucene.Net.Replicator.Nrt
                     catch (Exception t)
                     {
                         dest.message("xfer: exc during transferAndCancel");
-                        cancel("exc during transferAndCancel", t);
+                        Cancel("exc during transferAndCancel", t);
                         throw IOUtils.RethrowAlways(t);
                     }
                 }
@@ -174,20 +174,22 @@ namespace Lucene.Net.Replicator.Nrt
                 prevJob.exc = new Exception();
 
                 // Carry over already copied files that we also want to copy
-                Iterator<Map.Entry<String, FileMetaData>> it = toCopy.iterator();
+                IEnumerator<KeyValuePair<String, FileMetaData>> it = toCopy.GetEnumerator();
                 long bytesAlreadyCopied = 0;
 
                 // Iterate over all files we think we need to copy:
-                while (it.hasNext())
+                List<KeyValuePair<string, FileMetaData>> toRemove = new List<KeyValuePair<string, FileMetaData>>();
+
+                while (it.MoveNext())
                 {
-                    Map.Entry<String, FileMetaData> ent = it.next();
-                    String fileName = ent.getKey();
-                    String prevTmpFileName = prevJob.copiedFiles.get(fileName);
+                    KeyValuePair<String, FileMetaData> ent = it.Current;
+                    String fileName = ent.Key;
+                    String prevTmpFileName = prevJob.copiedFiles[fileName];
                     if (prevTmpFileName != null)
                     {
                         // This fileName is common to both jobs, and the old job already finished copying it (to a
                         // temp file), so we keep it:
-                        long fileLength = ent.getValue().length;
+                        long fileLength = ent.Value.length;
                         bytesAlreadyCopied += fileLength;
                         dest.message(
                             "xfer: carry over already-copied file "
@@ -224,18 +226,24 @@ namespace Lucene.Net.Replicator.Nrt
                                 + prevJob.current.bytesToCopy);
                         bytesAlreadyCopied += prevJob.current.getBytesCopied();
 
-                        assert current == null;
+                        if (Debugging.AssertsEnabled)
+                        {
+                            Debugging.Assert(current == null);
+                        }
 
                         // must set current first, before writing/read to c.in/out in case that hits an exception,
                         // so that we then close the temp
                         // IndexOutput when cancelling ourselves:
-                        current = newCopyOneFile(prevJob.current);
+                        current = NewCopyOneFile(prevJob.current);
 
                         // Tell our new (primary) connection we'd like to copy this file first, but resuming from
                         // how many bytes we already copied last time:
                         // We do this even if bytesToCopy == bytesCopied, because we still need to readLong() the
                         // checksum from the primary connection:
-                        assert prevJob.current.getBytesCopied() <= prevJob.current.bytesToCopy;
+                        if (Debugging.AssertsEnabled)
+                        {
+                            Debugging.Assert(prevJob.current.getBytesCopied() <= prevJob.current.bytesToCopy);
+                        }
 
                         prevJob.current = null;
 
@@ -252,12 +260,12 @@ namespace Lucene.Net.Replicator.Nrt
                 dest.message("xfer: " + bytesAlreadyCopied + " bytes already copied of " + totBytes);
 
                 // Delete all temp files the old job wrote but we don't need:
-                dest.message("xfer: now delete old temp files: " + prevJob.copiedFiles.values());
-                IOUtils.deleteFilesIgnoringExceptions(dest.dir, prevJob.copiedFiles.values());
+                dest.message("xfer: now delete old temp files: " + prevJob.copiedFiles.Values);
+                IOUtils.DeleteFilesIgnoringExceptions(dest.dir, prevJob.copiedFiles.Values);
 
                 if (prevJob.current != null)
                 {
-                    IOUtils.closeWhileHandlingException(prevJob.current);
+                    IOUtils.CloseWhileHandlingException(prevJob.current);
                     if (Node.VERBOSE_FILES)
                     {
                         dest.message("remove partial file " + prevJob.current.tmpName);
@@ -301,8 +309,8 @@ namespace Lucene.Net.Replicator.Nrt
                 "top: cancel after copying %s; exc=%s:\n  files=%s\n  copiedFiles=%s",
                 Node.bytesToString(totBytesCopied),
                 exc,
-                files == null ? "null" : files.keySet(),
-                copiedFiles.keySet()));
+                files == null ? "null" : files.Keys,
+                copiedFiles.Keys));
 
             if (exc == null)
             {
@@ -313,7 +321,7 @@ namespace Lucene.Net.Replicator.Nrt
             this.cancelReason = reason;
 
             // Delete all temp files we wrote:
-            IOUtils.DeleteFilesIgnoringExceptions(dest.dir, copiedFiles.values());
+            IOUtils.DeleteFilesIgnoringExceptions(dest.dir, copiedFiles.Values);
 
             if (current != null)
             {
