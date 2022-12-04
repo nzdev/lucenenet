@@ -316,5 +316,28 @@ namespace Lucene.Net.Codecs
                 | (input.ReadByte() & 0xFF);
         }
 
+        ///<summary>
+        ///  Retrieves the full footer from the provided <see cref="IndexInput"/>.
+        ///  This throws <see cref="CorruptIndexException"/> if this file does not have a valid footer.
+        /// </summary>
+        /// /// <exception cref="IOException"/>
+        public static byte[] ReadFooter(IndexInput input)
+        {
+            if (input.Length < FooterLength())
+            {
+                throw new CorruptIndexException(
+                    "misplaced codec footer (file truncated?): length="
+                        + input.Length
+                        + " but footerLength=="
+                        + FooterLength(),
+                    input);
+            }
+            input.Seek(input.Length - FooterLength());
+            ValidateFooter(input);
+            input.Seek(input.Length - FooterLength());
+            byte[] bytes = new byte[FooterLength()];
+            input.ReadBytes(bytes, 0, bytes.Length);
+            return bytes;
+        }
     }
 }

@@ -153,7 +153,6 @@ namespace Lucene.Net.Replicator.Nrt
                 long now = Time.NanoTime();
                 TextWriter.WriteLine(
                     String.Format(
-                        Locale.ROOT,
                         "%5.3fs %5.1fs: %7s %2s [%11s] %s",
                         (now - globalStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                         (now - localStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
