@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 using System.IO;
+using J2N;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
