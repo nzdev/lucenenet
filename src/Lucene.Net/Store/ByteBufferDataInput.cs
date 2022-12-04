@@ -16,6 +16,7 @@
  */
 
 using J2N.IO;
+using Lucene.Net.Support;
 using Lucene.Net.Util;
 using System;
 
@@ -88,7 +89,7 @@ namespace Lucene.Net.Store
             this.pos = offset;
         }
 
-        public long size()
+        public long Size()
         {
             return size;
         }
@@ -97,7 +98,7 @@ namespace Lucene.Net.Store
         {
             // Return a rough estimation for allocated blocks. Note that we do not make
             // any special distinction for what the type of buffer is (direct vs. heap-based).
-            return (long)RamUsageEstimator.NUM_BYTES_OBJECT_REF * blocks.length
+            return (long)RamUsageEstimator.NUM_BYTES_OBJECT_REF * blocks.Length
                 + Arrays.stream(blocks).mapToLong(buf->buf.capacity()).sum();
         }
         /// <exception cref="EOFException"/>
@@ -189,7 +190,8 @@ namespace Lucene.Net.Store
                     off += chunk;
                 }
             }
-            catch (BufferUnderflowException | ArrayIndexOutOfBoundsException e) {
+            catch (Exception e) when (e is BufferUnderflowException || e is ArrayIndexOutOfBoundsException)
+            {
                 if (pos >= size())
                 {
                     throw new EOFException();
@@ -199,7 +201,7 @@ namespace Lucene.Net.Store
                     throw e; // Something is wrong.
                 }
             }
-            }
+        }
 
         /// <exception cref="IOException"/>
         public override short ReadShort()
