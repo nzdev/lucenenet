@@ -1717,11 +1717,11 @@ namespace Lucene.Net.Index
                 format = CodecUtil.CheckHeaderNoMagic(input, "segments", VERSION_74, VERSION_CURRENT);
                 byte[] id = new byte[StringHelper.ID_LENGTH];
                 input.ReadBytes(id, 0, id.Length);
-                CodecUtil.CheckIndexHeaderSuffix(input, Long.toString(generation, Character.MAX_RADIX));
+                CodecUtil.CheckIndexHeaderSuffix(input, Long.ToString(generation, Character.MAX_RADIX));
 
                 Version luceneVersion =
-                    Version.fromBits(input.readVInt(), input.readVInt(), input.readVInt());
-                int indexCreatedVersion = input.readVInt();
+                    Version.fromBits(input.ReadVInt32(), input.ReadVInt32(), input.ReadVInt32());
+                int indexCreatedVersion = input.ReadVInt32();
                 if (luceneVersion.major < indexCreatedVersion)
                 {
                     throw new CorruptIndexException(
@@ -1779,7 +1779,7 @@ namespace Lucene.Net.Index
         {
             infos.version = CodecUtil.ReadBELong(input);
             // System.out.println("READ sis version=" + infos.version);
-            infos.counter = input.ReadVLong();
+            infos.counter = input.ReadInt64();
             int numSegments = CodecUtil.ReadBEInt(input);
             if (numSegments < 0)
             {
@@ -1789,7 +1789,7 @@ namespace Lucene.Net.Index
             if (numSegments > 0)
             {
                 infos.minSegmentLuceneVersion =
-                    Version.fromBits(input.ReadVInt(), input.ReadVInt(), input.ReadVInt());
+                    Version.fromBits(input.ReadVInt32(), input.ReadVInt32(), input.ReadVInt32());
             }
             else
             {
@@ -1799,12 +1799,12 @@ namespace Lucene.Net.Index
             long totalDocs = 0;
             for (int seg = 0; seg < numSegments; seg++)
             {
-                String segName = input.ReadString();
+                string segName = input.ReadString();
                 byte[] segmentID = new byte[StringHelper.ID_LENGTH];
                 input.ReadBytes(segmentID, 0, segmentID.Length);
                 Codec codec = ReadCodec(input);
                 SegmentInfo info =
-                    codec.SegmentInfoFormat().read(directory, segName, segmentID, IOContext.READ);
+                    codec.SegmentInfoFormat().Read(directory, segName, segmentID, IOContext.READ);
                 info.SetCodec(codec);
                 totalDocs += info.MaxDoc();
                 long delGen = CodecUtil.ReadBELong(input);
