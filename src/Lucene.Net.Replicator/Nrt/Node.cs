@@ -287,5 +287,7 @@ namespace Lucene.Net.Replicator.Nrt
 
             return result;
         }
+
+        public abstract void Dispose();
     }
 }
