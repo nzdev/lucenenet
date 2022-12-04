@@ -412,7 +412,7 @@ namespace Lucene.Net.Replicator.Nrt
                 // Tell caller the version before pushing to replicas, so that even if we crash after this,
                 // caller will know what version we
                 // (possibly) pushed to some replicas.  Alternatively we could make this 2 separate ops?
-                long version = getCopyStateVersion();
+                long version = GetCopyStateVersion();
                 message("send flushed version=" + version);
                 topOut.writeLong(version);
                 bos.flush();

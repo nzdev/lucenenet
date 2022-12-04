@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
+using J2N;
 using J2N.Threading.Atomic;
+using Lucene.Net.Diagnostics;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
+using Lucene.Net.Support;
 using Lucene.Net.Support.Threading;
 using Lucene.Net.Util;
-//import java.io.IOException;
-//import java.io.TextWriter;
-//import java.util.Collections;
-//import java.util.HashMap;
-//import java.util.HashSet;
-//import java.util.Map;
-//import java.util.Set;
-//import java.util.concurrent.atomic.AtomicInteger;
+using System;
+using System.Collections.Generic;
+using System.IO;
 
 namespace Lucene.Net.Replicator.Nrt
 {
@@ -64,7 +62,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// <summary>
         ///  Contains merged segments that have been copied to all running replicas (as of when that merge started warming).
         /// </summary>
-        readonly Set<String> finishedMergedFiles = Collections.synchronizedSet(new HashSet<String>());
+        readonly ISet<string> finishedMergedFiles = new ConcurrentHashSet<string>();
 
         private readonly AtomicInt32 copyingCount = new AtomicInt32();
 
@@ -75,9 +73,8 @@ namespace Lucene.Net.Replicator.Nrt
             long primaryGen,
             long forcePrimaryVersion,
             SearcherFactory searcherFactory,
-            TextWriter TextWriter)
+            TextWriter TextWriter) : base(id, writer.Directory, searcherFactory, TextWriter)
         {
-            super(id, writer.getDirectory(), searcherFactory, TextWriter);
             Message("top: now init primary");
             this.writer = writer;
             this.primaryGen = primaryGen;
@@ -89,33 +86,33 @@ namespace Lucene.Net.Replicator.Nrt
                 // it copies it out to the replicas.  This ensures the whole system's NRT latency remains low
                 // even when a
                 // large merge completes:
-                writer.getConfig().setMergedSegmentWarmer(new PreCopyMergedSegmentWarmer(this));
+                writer.Config.MergedSegmentWarmer = new PreCopyMergedSegmentWarmer(this);
 
-                message("IWC:\n" + writer.getConfig());
-                message("dir:\n" + writer.getDirectory());
-                message("commitData: " + writer.getLiveCommitData());
+                Message("IWC:\n" + writer.Config);
+                Message("dir:\n" + writer.Directory);
+                Message("commitData: " + writer.getLiveCommitData());
 
                 // Record our primaryGen in the userData, and set initial version to 0:
-                Map<String, String> commitData = new HashMap<>();
-                Iterable<Map.Entry<String, String>> iter = writer.getLiveCommitData();
+                IDictionary<string, string> commitData = new Dictionary<string, string>();
+                Iterable<KeyValuePair<string, string>> iter = writer.getLiveCommitData();
                 if (iter != null)
                 {
-                    for (Map.Entry<String, String> ent : iter)
+                    foreach (KeyValuePair<string, string> ent in iter)
                     {
-                        commitData.put(ent.getKey(), ent.getValue());
+                        commitData.Add(ent.Key, ent.Value);
                     }
                 }
-                commitData.put(PRIMARY_GEN_KEY, Long.toString(primaryGen));
-                if (commitData.get(VERSION_KEY) == null)
+                commitData.Add(PRIMARY_GEN_KEY, Long.toString(primaryGen));
+                if (commitData[VERSION_KEY] == null)
                 {
-                    commitData.put(VERSION_KEY, "0");
+                    commitData.Add(VERSION_KEY, "0");
                     Message("add initial commitData version=0");
                 }
                 else
                 {
-                    message("keep current commitData version=" + commitData.get(VERSION_KEY));
+                    Message("keep current commitData version=" + commitData[VERSION_KEY]);
                 }
-                writer.setLiveCommitData(commitData.entrySet(), false);
+                writer.SetLiveCommitData(commitData.entrySet(), false);
 
                 // We forcefully advance the SIS version to an unused future version.  This is necessary if
                 // the previous primary crashed and we are
@@ -124,18 +121,18 @@ namespace Lucene.Net.Replicator.Nrt
                 if (forcePrimaryVersion != -1)
                 {
                     Message("now forcePrimaryVersion to version=" + forcePrimaryVersion);
-                    writer.advanceSegmentInfosVersion(forcePrimaryVersion);
+                    writer.AdvanceSegmentInfosVersion(forcePrimaryVersion);
                 }
 
                 mgr = new SearcherManager(writer, true, true, searcherFactory);
-                setCurrentInfos(Collections.< String > emptySet());
-                message("init: infos version=" + curInfos.getVersion());
+                SetCurrentInfos(new HashSet<string>());
+                Message("init: infos version=" + curInfos.Version);
 
             }
             catch (Exception t)
             {
                 Message("init: exception");
-                t.printStackTrace(TextWriter);
+                t.PrintStackTrace(TextWriter);
                 throw new RuntimeException(t);
             }
         }
@@ -167,19 +164,25 @@ namespace Lucene.Net.Replicator.Nrt
         public bool FlushAndRefresh()
         {
             Message("top: now flushAndRefresh");
-            Set<String> completedMergeFiles;
-            synchronized(finishedMergedFiles) {
+            ISet<string> completedMergeFiles;
+            UninterruptableMonitor.Enter(this);
+            try
+            {
                 completedMergeFiles = Set.copyOf(finishedMergedFiles);
             }
-            mgr.maybeRefreshBlocking();
-            boolean result = setCurrentInfos(completedMergeFiles);
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+            mgr.MaybeRefreshBlocking();
+            bool result = SetCurrentInfos(completedMergeFiles);
             if (result)
             {
-                message("top: opened NRT reader version=" + curInfos.getVersion());
-                finishedMergedFiles.removeAll(completedMergeFiles);
-                message(
+                Message("top: opened NRT reader version=" + curInfos.Version);
+                finishedMergedFiles.RemoveAll(completedMergeFiles);
+                Message(
                     "flushAndRefresh: version="
-                        + curInfos.getVersion()
+                        + curInfos.Version
                         + " completedMergeFiles="
                         + completedMergeFiles
                         + " finishedMergedFiles="
@@ -187,24 +190,24 @@ namespace Lucene.Net.Replicator.Nrt
             }
             else
             {
-                message("top: no changes in flushAndRefresh; still version=" + curInfos.getVersion());
+                Message("top: no changes in flushAndRefresh; still version=" + curInfos.getVersion());
             }
             return result;
         }
 
-        public long getCopyStateVersion()
+        public long GetCopyStateVersion()
         {
             return copyState.version;
         }
 
-        public long getLastCommitVersion()
+        public long GetLastCommitVersion()
         {
             UninterruptableMonitor.Enter(this);
             try
             {
-                Iterable<Map.Entry<String, String>> iter = writer.getLiveCommitData();
+                Iterable<KeyValuePair<string, string>> iter = writer.GetLiveCommitData();
                 assert iter != null;
-                for (Map.Entry<String, String> ent : iter)
+                foreach (KeyValuePair<string, string> ent : iter)
                 {
                     if (ent.getKey().equals(VERSION_KEY))
                     {
@@ -245,15 +248,15 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         public override void Commit()
         {
-            Map<String, String> commitData = new HashMap<>();
-            commitData.put(PRIMARY_GEN_KEY, Long.toString(primaryGen));
+            IDictionary<string, string> commitData = new Dictionary<string, string>();
+            commitData.Add(PRIMARY_GEN_KEY, Long.toString(primaryGen));
             // TODO (opto): it's a bit wasteful that we put "last refresh" version here, not the actual
             // version we are committing, because it means
             // on xlog replay we are replaying more ops than necessary.
-            commitData.put(VERSION_KEY, Long.toString(copyState.version));
-            message("top: commit commitData=" + commitData);
-            writer.setLiveCommitData(commitData.entrySet(), false);
-            writer.commit();
+            commitData.Add(VERSION_KEY, Long.toString(copyState.version));
+            Message("top: commit commitData=" + commitData);
+            writer.SetLiveCommitData(commitData.entrySet(), false);
+            writer.Commit();
         }
 
         /** IncRef the current CopyState and return it */
@@ -263,13 +266,20 @@ namespace Lucene.Net.Replicator.Nrt
             UninterruptableMonitor.Enter(this);
             try
             {
-                ensureOpen(false);
+                EnsureOpen(false);
                 // message("top: getCopyState replicaID=" + replicaID + " replicaNodeID=" + replicaNodeID + "
                 // version=" + curInfos.getVersion() + " infos=" + curInfos.toString());
-                assert curInfos == copyState.infos;
-                writer.incRefDeleter(copyState.infos);
-                int count = copyingCount.incrementAndGet();
-                assert count > 0;
+                if (Debugging.AssertsEnabled)
+                {
+                    Debugging.Assert(curInfos == copyState.infos);
+                }
+
+                writer.IncRefDeleter(copyState.infos);
+                int count = copyingCount.IncrementAndGet();
+                if (Debugging.AssertsEnabled)
+                {
+                    Debugging.Assert(count > 0);
+                }
                 return copyState;
             }
             finally
@@ -282,13 +292,19 @@ namespace Lucene.Net.Replicator.Nrt
 
         /** Called once replica is done (or failed) copying an NRT point */
         /// <exception cref="IOException"/>
-        public void releaseCopyState(CopyState copyState)
+        public void ReleaseCopyState(CopyState copyState)
         {
             // message("top: releaseCopyState version=" + copyState.version);
-            assert copyState.infos != null;
-            writer.decRefDeleter(copyState.infos);
-            int count = copyingCount.decrementAndGet();
-            assert count >= 0;
+            if (Debugging.AssertsEnabled)
+            {
+                Debugging.Assert(copyState.infos != null);
+            }
+            writer.DecRefDeleter(copyState.infos);
+            int count = copyingCount.DecrementAndGet();
+            if (Debugging.AssertsEnabled)
+            {
+                Debugging.Assert(count >= 0);
+            }
         }
 
         public override bool IsClosed()
@@ -301,11 +317,11 @@ namespace Lucene.Net.Replicator.Nrt
             return "closed".Equals(state) || (allowClosing == false && "closing".Equals(state));
         }
 
-        private void ensureOpen(bool allowClosing)
+        private void EnsureOpen(bool allowClosing)
         {
             if (IsClosed(allowClosing))
             {
-                throw new AlreadyClosedException(state);
+                throw AlreadyClosedException.Create(state);
             }
         }
 
@@ -313,124 +329,136 @@ namespace Lucene.Net.Replicator.Nrt
         /// Steals incoming infos refCount; returns true if there were changes.
         /// </remarks>
         /// <exception cref="IOException"/>
-        private synchronized bool setCurrentInfos(Set<String> completedMergeFiles)
+        private bool SetCurrentInfos(ISet<string> completedMergeFiles)
         {
-
-            IndexSearcher searcher = null;
-            SegmentInfos infos;
+            UninterruptableMonitor.Enter(this);
             try
             {
-                searcher = mgr.acquire();
-                infos = ((StandardDirectoryReader)searcher.getIndexReader()).getSegmentInfos();
-            }
-            finally
-            {
-                if (searcher != null)
-                {
-                    mgr.release(searcher);
-                }
-            }
-            if (curInfos != null && infos.getVersion() == curInfos.getVersion())
-            {
-                // no change
-                message(
-                    "top: skip switch to infos: version="
-                        + infos.getVersion()
-                        + " is unchanged: "
-                        + infos.toString());
-                return false;
-            }
-
-            SegmentInfos oldInfos = curInfos;
-            writer.incRefDeleter(infos);
-            curInfos = infos;
-            if (oldInfos != null)
-            {
-                writer.decRefDeleter(oldInfos);
-            }
-
-            message("top: switch to infos=" + infos.toString() + " version=" + infos.getVersion());
-
-            // Serialize the SegmentInfos.
-            ByteBuffersDataOutput buffer = new ByteBuffersDataOutput();
-            try (ByteBuffersIndexOutput tmpIndexOutput =
-                new ByteBuffersIndexOutput(buffer, "temporary", "temporary")) {
-                infos.write(tmpIndexOutput);
-            }
-            byte[] infosBytes = buffer.toArrayCopy();
-
-            Map<String, FileMetaData> filesMetaData = new HashMap<String, FileMetaData>();
-            for (SegmentCommitInfo info : infos)
-            {
-                for (String fileName : info.files())
-                {
-                    FileMetaData metaData = readLocalFileMetaData(fileName);
-                    // NOTE: we hold a refCount on this infos, so this file better exist:
-                    assert metaData != null : "file \"" + fileName + "\" is missing metadata";
-                    assert filesMetaData.containsKey(fileName) == false;
-                    filesMetaData.put(fileName, metaData);
-                }
-            }
-
-            lastFileMetaData = Collections.unmodifiableMap(filesMetaData);
-
-            message(
-                "top: set copyState primaryGen="
-                    + primaryGen
-                    + " version="
-                    + infos.getVersion()
-                    + " files="
-                    + filesMetaData.keySet());
-            copyState =
-                new CopyState(
-                    lastFileMetaData,
-                    infos.getVersion(),
-                    infos.getGeneration(),
-                    infosBytes,
-                    completedMergeFiles,
-                    primaryGen,
-                    curInfos);
-            return true;
-            }
-
-        /// <exception cref="IOException"/>
-        private void waitForAllRemotesToClose()
-            {
-                UninterruptableMonitor.Enter(this);
+                IndexSearcher searcher = null;
+                SegmentInfos infos;
                 try
                 {
-                    if (remoteCloseTimeoutMs == 0)
-                    {
-                        return;
-                    }
-                    long waitStartNs = Time.NanoTime();
-                    // Wait for replicas to finish or crash or timeout:
-                    while (remoteCloseTimeoutMs < 0
-                        || (Time.NanoTime() - waitStartNs) / 1_000_000 < remoteCloseTimeoutMs)
-                    {
-                        int count = copyingCount.get();
-                        if (count == 0)
-                        {
-                            return;
-                        }
-                        Message("pendingCopies: " + count);
-
-                        try
-                        {
-                            wait(10);
-                        }
-                        catch (InterruptedException ie)
-                        {
-                            throw new ThreadInterruptedException(ie);
-                        }
-                    }
+                    searcher = mgr.Acquire();
+                    infos = ((StandardDirectoryReader)searcher.GetIndexReader()).getSegmentInfos();
                 }
                 finally
                 {
-                    UninterruptableMonitor.Exit(this);
+                    if (searcher != null)
+                    {
+                        mgr.Release(searcher);
+                    }
+                }
+                if (curInfos != null && infos.Version == curInfos.Version)
+                {
+                    // no change
+                    Message(
+                        "top: skip switch to infos: version="
+                            + infos.Version
+                            + " is unchanged: "
+                            + infos.ToString());
+                    return false;
                 }
 
+                SegmentInfos oldInfos = curInfos;
+                writer.IncRefDeleter(infos);
+                curInfos = infos;
+                if (oldInfos != null)
+                {
+                    writer.DecRefDeleter(oldInfos);
+                }
+
+                Message("top: switch to infos=" + infos.ToString() + " version=" + infos.Version);
+
+                // Serialize the SegmentInfos.
+                ByteBuffersDataOutput buffer = new ByteBuffersDataOutput();
+                using (ByteBuffersIndexOutput tmpIndexOutput =
+                    new ByteBuffersIndexOutput(buffer, "temporary", "temporary"))
+                {
+                    infos.write(tmpIndexOutput);
+                }
+                byte[] infosBytes = buffer.toArrayCopy();
+
+                IDictionary<string, FileMetaData> filesMetaData = new Dictionary<string, FileMetaData>();
+                foreach (SegmentCommitInfo info in infos)
+                {
+                    foreach (String fileName in info.GetFiles())
+                    {
+                        FileMetaData metaData = ReadLocalFileMetaData(fileName);
+                        // NOTE: we hold a refCount on this infos, so this file better exist:
+                        if (Debugging.AssertsEnabled)
+                        {
+                            Debugging.Assert(metaData != null, "file \"" + fileName + "\" is missing metadata");
+                            Debugging.Assert(filesMetaData.ContainsKey(fileName) == false);
+                        }
+                        filesMetaData.Add(fileName, metaData);
+                    }
+                }
+
+                lastFileMetaData = Collections.unmodifiableMap(filesMetaData);
+
+                Message(
+                    "top: set copyState primaryGen="
+                        + primaryGen
+                        + " version="
+                        + infos.Version
+                        + " files="
+                        + filesMetaData.Keys);
+                copyState =
+                    new CopyState(
+                        lastFileMetaData,
+                        infos.Version,
+                        infos.Generation,
+                        infosBytes,
+                        completedMergeFiles,
+                        primaryGen,
+                        curInfos);
+                return true;
             }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+            
+        }
+
+        /// <exception cref="IOException"/>
+        private void WaitForAllRemotesToClose()
+        {
+            UninterruptableMonitor.Enter(this);
+            try
+            {
+                if (remoteCloseTimeoutMs == 0)
+                {
+                    return;
+                }
+                long waitStartNs = Time.NanoTime();
+                // Wait for replicas to finish or crash or timeout:
+                while (remoteCloseTimeoutMs < 0
+                    || (Time.NanoTime() - waitStartNs) / 1_000_000 < remoteCloseTimeoutMs)
+                {
+                    int count = copyingCount.Value;
+                    if (count == 0)
+                    {
+                        return;
+                    }
+                    Message("pendingCopies: " + count);
+
+                    try
+                    {
+                        Wait(10);
+                    }
+                    catch (InterruptedException ie)
+                    {
+                        throw new ThreadInterruptedException(ie);
+                    }
+                }
+            }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+
+        }
 
         /// <exception cref="IOException"/>
         public override void Dispose()
@@ -440,25 +468,25 @@ namespace Lucene.Net.Replicator.Nrt
 
             lock (this)
             {
-                waitForAllRemotesToClose();
+                WaitForAllRemotesToClose();
                 if (curInfos != null)
                 {
-                    writer.decRefDeleter(curInfos);
+                    writer.DecRefDeleter(curInfos);
                     curInfos = null;
                 }
             }
 
-            mgr.close();
+            mgr.Close();
 
-            writer.rollback();
-            dir.close();
+            writer.Rollback();
+            dir.Close();
 
             state = "closed";
         }
 
         /** Called when a merge has finished, but before IW switches to the merged segment */
         /// <exception cref="IOException"/>
-        protected abstract void preCopyMergedSegmentFiles(
-            SegmentCommitInfo info, Map<String, FileMetaData> files)
+        protected abstract void PreCopyMergedSegmentFiles(
+            SegmentCommitInfo info, IDictionary<string, FileMetaData> files);
     }
 }
