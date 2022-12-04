@@ -177,7 +177,7 @@ namespace Lucene.Net.Replicator.Nrt
             IndexSearcher searcher = mgr.Acquire();
             try
             {
-                return ((DirectoryReader)searcher.GetIndexReader()).GetVersion();
+                return ((DirectoryReader)searcher.GetIndexReader()).Version;
             }
             finally
             {
@@ -248,7 +248,6 @@ namespace Lucene.Net.Replicator.Nrt
                         footer = CodecUtil.ReadFooter(input);
                         checksum = CodecUtil.RetrieveChecksum(input);
                     }
-                    //@SuppressWarnings("unused")
                     catch (Exception cie) when (cie is EOFException || cie is CorruptIndexException)
                     {
                         // File exists but is busted: we must copy it.  This happens when node had crashed,
