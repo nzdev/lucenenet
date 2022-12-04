@@ -646,9 +646,9 @@ namespace Lucene.Net.Replicator.Nrt
             try
             {
 
-                if (isClosed())
+                if (IsClosed())
                 {
-                    throw new AlreadyClosedException("this replica is closed: state=" + state);
+                    throw AlreadyClosedException.Create("this replica is closed: state=" + state);
                 }
 
                 // Cutover (possibly) to new primary first, so we discard any pre-copied merged segments up
@@ -660,24 +660,27 @@ namespace Lucene.Net.Replicator.Nrt
                 // merged segments, it's still a bit risky to rely solely on checksum/file length to catch the
                 // difference, so we defensively discard
                 // here and re-copy in that case:
-                maybeNewPrimary(newPrimaryGen);
+                MaybeNewPrimary(newPrimaryGen);
 
                 // Caller should not "publish" us until we have finished .start():
-                assert mgr != null;
+                if (Debugging.AssertsEnabled)
+                {
+                    Debugging.Assert(mgr != null);
+                }
 
-                if ("idle".equals(state))
+                if ("idle".Equals(state))
                 {
                     state = "syncing";
                 }
 
-                long curVersion = getCurrentSearchingVersion();
+                long curVersion = GetCurrentSearchingVersion();
 
-                message("top: start sync sis.version=" + version);
+                Message("top: start sync sis.version=" + version);
 
                 if (version == curVersion)
                 {
                     // Caller releases the CopyState:
-                    message("top: new NRT point has same version as current; skipping");
+                    Message("top: new NRT point has same version as current; skipping");
                     return null;
                 }
 
@@ -685,7 +688,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     // This can happen, if two syncs happen close together, and due to thread scheduling, the
                     // incoming older version runs after the newer version
-                    message(
+                    Message(
                         "top: new NRT point (version="
                             + version
                             + ") is older than current (version="
@@ -694,104 +697,115 @@ namespace Lucene.Net.Replicator.Nrt
                     return null;
                 }
 
-                final long startNS = System.nanoTime();
+                long startNS = Time.NanoTime();
 
-                message("top: newNRTPoint");
+                Message("top: newNRTPoint");
                 CopyJob job = null;
                 try
                 {
                     job =
-                        newCopyJob(
+                        NewCopyJob(
                             "NRT point sync version=" + version,
                             null,
                             lastFileMetaData,
                             true,
-                            new CopyJob.OnceDone() {
-                @Override
-                              public void run(CopyJob job)
-                    {
-                        try
-                        {
-                            finishNRTCopy(job, startNS);
-                        }
-                        catch (IOException ioe)
-                        {
-                            throw new RuntimeException(ioe);
-                        }
-                    }
-                });
-            }
-            catch (NodeCommunicationException nce)
-            {
-                // E.g. primary could crash/close when we are asking it for the copy state:
-                message("top: ignoring communication exception creating CopyJob: " + nce);
-                // nce.printStackTrace(printStream);
-                if (state.equals("syncing"))
-                {
-                    state = "idle";
+                            new CopyJob.OnceDoneAction((job) =>
+                            {
+
+                                try
+                                {
+                                    FinishNRTCopy(job, startNS);
+                                }
+                                catch (IOException ioe)
+                                {
+                                    throw RuntimeException.Create(ioe);
+                                }
+                            }));
                 }
-                return null;
-            }
-
-            assert newPrimaryGen == job.getCopyState().primaryGen;
-
-            Collection<String> newNRTFiles = job.getFileNames();
-
-            message("top: newNRTPoint: job files=" + newNRTFiles);
-
-            if (curNRTCopy != null)
-            {
-                job.transferAndCancel(curNRTCopy);
-                assert curNRTCopy.getFailed();
-            }
-
-            curNRTCopy = job;
-
-            for (String fileName : curNRTCopy.getFileNamesToCopy())
-            {
-                assert lastCommitFiles.contains(fileName) == false
-                  : "fileName=" + fileName + " is in lastCommitFiles and is being copied?";
-                synchronized(mergeCopyJobs) {
-                    for (CopyJob mergeJob : mergeCopyJobs)
+                catch (NodeCommunicationException nce)
+                {
+                    // E.g. primary could crash/close when we are asking it for the copy state:
+                    Message("top: ignoring communication exception creating CopyJob: " + nce);
+                    // nce.printStackTrace(printStream);
+                    if (state.Equals("syncing"))
                     {
-                        if (mergeJob.getFileNames().contains(fileName))
-                        {
-                            // TODO: we could maybe transferAndCancel here?  except CopyJob can't transferAndCancel
-                            // more than one currently
-                            message(
-                                "top: now cancel merge copy job="
-                                    + mergeJob
-                                    + ": file "
-                                    + fileName
-                                    + " is now being copied via NRT point");
-                            mergeJob.cancel("newNRTPoint is copying over the same file", null);
-                        }
+                        state = "idle";
+                    }
+                    return null;
+                }
+                if (Debugging.AssertsEnabled)
+                {
+                    Debugging.Assert(newPrimaryGen == job.GetCopyState().primaryGen);
+                }
+
+                ICollection<string> newNRTFiles = job.GetFileNames();
+
+                Message("top: newNRTPoint: job files=" + newNRTFiles);
+
+                if (curNRTCopy != null)
+                {
+                    job.TransferAndCancel(curNRTCopy);
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(curNRTCopy.GetFailed());
                     }
                 }
-            }
 
-            try
-            {
-                job.start();
-            }
-            catch (NodeCommunicationException nce)
-            {
-                // E.g. primary could crash/close when we are asking it for the copy state:
-                message("top: ignoring exception starting CopyJob: " + nce);
-                nce.printStackTrace(printStream);
-                if (state.equals("syncing"))
+                curNRTCopy = job;
+
+                foreach (string fileName in curNRTCopy.FetFileNamesToCopy())
                 {
-                    state = "idle";
-                }
-                return null;
-            }
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(lastCommitFiles.Contains(fileName) == false, "fileName=" + fileName + " is in lastCommitFiles and is being copied?");
+                    }
+                    UninterruptableMonitor.Enter(mergeCopyJobs);
+                    try
+                    {
+                        foreach (CopyJob mergeJob in mergeCopyJobs)
+                        {
+                            if (mergeJob.GetFileNames().Contains(fileName))
+                            {
+                                // TODO: we could maybe transferAndCancel here?  except CopyJob can't transferAndCancel
+                                // more than one currently
+                                Message(
+                                    "top: now cancel merge copy job="
+                                        + mergeJob
+                                        + ": file "
+                                        + fileName
+                                        + " is now being copied via NRT point");
+                                mergeJob.Cancel("newNRTPoint is copying over the same file", null);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        UninterruptableMonitor.Exit(mergeCopyJobs);
+                    }
 
-            // Runs in the background jobs thread, maybe slowly/throttled, and calls finishSync once it's
-            // done:
-            launch(curNRTCopy);
-            return curNRTCopy;
-        }
-    }
+                }
+
+                try
+                {
+                    job.Start();
+                }
+                catch (NodeCommunicationException nce)
+                {
+                    // E.g. primary could crash/close when we are asking it for the copy state:
+                    Message("top: ignoring exception starting CopyJob: " + nce);
+                    nce.PrintStackTrace(printStream);
+                    if (state.Equals("syncing"))
+                    {
+                        state = "idle";
+                    }
+                    return null;
+                }
+
+                // Runs in the background jobs thread, maybe slowly/throttled, and calls finishSync once it's
+                // done:
+                Launch(curNRTCopy);
+                return curNRTCopy;
+            }
             finally
             {
                 UninterruptableMonitor.Exit(this);

@@ -84,7 +84,7 @@ namespace Lucene.Net.Replicator.Nrt
         protected volatile String state = "idle";
 
         /** File metadata for last sync that succeeded; we use this as a cache */
-        protected volatile IDictionary<String, FileMetaData> lastFileMetaData;
+        protected volatile IDictionary<string, FileMetaData> lastFileMetaData;
 
         public Node(int id, Directory dir, SearcherFactory searcherFactory, TextWriter TextWriter)
         {
@@ -114,7 +114,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         public abstract void Commit();
 
-        public static void NodeMessage(TextWriter TextWriter, String message)
+        public static void NodeMessage(TextWriter TextWriter, string message)
         {
             if (TextWriter != null)
             {
@@ -129,7 +129,7 @@ namespace Lucene.Net.Replicator.Nrt
             }
         }
 
-        public static void NodeMessage(TextWriter TextWriter, int id, String message)
+        public static void NodeMessage(TextWriter TextWriter, int id, string message)
         {
             if (TextWriter != null)
             {
