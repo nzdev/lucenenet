@@ -19,6 +19,8 @@ using J2N.Threading.Atomic;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
+using Lucene.Net.Support.Threading;
+
 namespace Lucene.Net.Replicator.Nrt
 {
 
@@ -125,7 +127,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 throw new IllegalStateException("StandardDirectoryReader must support caching");
             }
-            openReaderCount.incrementAndGet();
+            openReaderCount.IncrementAndGet();
             cacheHelper.addClosedListener(
                 new IndexReader.ClosedListener()
                 {

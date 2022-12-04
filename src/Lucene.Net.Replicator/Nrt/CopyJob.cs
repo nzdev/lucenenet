@@ -27,6 +27,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using Lucene.Net.Diagnostics;
+using Lucene.Net.Index;
 
 //import java.io.IOException;
 //import java.util.Iterator;
@@ -205,9 +206,9 @@ namespace Lucene.Net.Replicator.Nrt
                         prevJob.copiedFiles.Remove(fileName);
 
                         // So it's not in our copy list anymore:
-                        it.remove();
+                        it.Remove();
                     }
-                    else if (prevJob.current != null && prevJob.current.name.equals(fileName))
+                    else if (prevJob.current != null && prevJob.current.name.Equals(fileName))
                     {
                         // This fileName is common to both jobs, and it's the file that the previous job was in the
                         // process of copying.  In this case
@@ -215,16 +216,16 @@ namespace Lucene.Net.Replicator.Nrt
                         // copying over a large file
                         // because otherwise we could keep failing the NRT copy and restarting this file from the
                         // beginning and never catch up:
-                        dest.message(
+                        dest.Message(
                             "xfer: carry over in-progress file "
                                 + fileName
                                 + " ("
                                 + prevJob.current.tmpName
                                 + ") bytesCopied="
-                                + prevJob.current.getBytesCopied()
+                                + prevJob.current.GetBytesCopied()
                                 + " of "
                                 + prevJob.current.bytesToCopy);
-                        bytesAlreadyCopied += prevJob.current.getBytesCopied();
+                        bytesAlreadyCopied += prevJob.current.GetBytesCopied();
 
                         if (Debugging.AssertsEnabled)
                         {
@@ -242,7 +243,7 @@ namespace Lucene.Net.Replicator.Nrt
                         // checksum from the primary connection:
                         if (Debugging.AssertsEnabled)
                         {
-                            Debugging.Assert(prevJob.current.getBytesCopied() <= prevJob.current.bytesToCopy);
+                            Debugging.Assert(prevJob.current.GetBytesCopied() <= prevJob.current.bytesToCopy);
                         }
 
                         prevJob.current = null;
@@ -250,7 +251,7 @@ namespace Lucene.Net.Replicator.Nrt
                         totBytes += current.metaData.length;
 
                         // So it's not in our copy list anymore:
-                        it.remove();
+                        it.Remove();
                     }
                     else
                     {

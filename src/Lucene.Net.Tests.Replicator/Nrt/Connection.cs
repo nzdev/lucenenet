@@ -47,13 +47,13 @@ namespace Lucene.Net.Replicator.Nrt
         {
             this.destTCPPort = tcpPort;
             this.s = new Socket(InetAddress.getLoopbackAddress(), tcpPort);
-            this.sockIn = s.getInputStream();
+            this.sockIn = s.GetInputStream();
             this.input = new InputStreamDataInput(sockIn);
             this.bos = new BufferedOutputStream(s.GetOutputStream());
             this.output = new OutputStreamDataOutput(bos);
             if (Node.VERBOSE_CONNECTIONS)
             {
-                System.out.println("make new client Connection socket=" + this.s + " destPort=" + tcpPort);
+                Console.WriteLine("make new client Connection socket=" + this.s + " destPort=" + tcpPort);
             }
         }
 

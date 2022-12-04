@@ -76,14 +76,14 @@ namespace Lucene.Net.Replicator.Nrt
                         Debugging.Assert(SlowFileExists(dir, fileName), "file " + fileName + " does not exist!");
                     }
 
-                    int curCount = refCounts.get(fileName);
+                    int curCount = refCounts[fileName];
                     if (curCount == null)
                     {
-                        refCounts.put(fileName, 1);
+                        refCounts.Add(fileName, 1);
                     }
                     else
                     {
-                        refCounts.put(fileName, curCount.intValue() + 1);
+                        refCounts.Add(fileName, curCount.IntValue() + 1);
                     }
                 }
             }
@@ -117,7 +117,7 @@ namespace Lucene.Net.Replicator.Nrt
                     }
                     else
                     {
-                        refCounts.put(fileName, curCount.intValue() - 1);
+                        refCounts.Add(fileName, curCount.intValue() - 1);
                     }
                 }
 

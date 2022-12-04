@@ -88,7 +88,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         public override void Close()
         {
-            output.Close();
+            output.Dispose();
             dest.FinishCopyFile(name);
         }
 
@@ -102,7 +102,7 @@ namespace Lucene.Net.Replicator.Nrt
                 long bytesLeft = bytesToCopy - bytesCopied;
                 if (bytesLeft == 0)
                 {
-                    long checksum = output.GetChecksum();
+                    long checksum = output.Checksum;
                     if (checksum != metaData.checksum)
                     {
                         // Bits flipped during copy!
@@ -120,7 +120,7 @@ namespace Lucene.Net.Replicator.Nrt
                     // Paranoia: make sure the primary node is not smoking crack, by somehow sending us an
                     // already corrupted file whose checksum (in its
                     // footer) disagrees with reality:
-                    long actualChecksumIn = CodecUtil.readBELong(in);
+                    long actualChecksumIn = CodecUtil.ReadBELong(in);
                     if (actualChecksumIn != checksum)
                     {
                         dest.Message(
@@ -132,7 +132,7 @@ namespace Lucene.Net.Replicator.Nrt
                                 + actualChecksumIn);
                         throw new IOException("file " + name + ": checksum mismatch after file copy");
                     }
-                    CodecUtil.writeBELong(out, checksum);
+                    CodecUtil.WriteBELong(out, checksum);
                     bytesCopied += Long.BYTES;
                     close();
 

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -51,7 +51,7 @@ import org.apache.lucene.store.RateLimiter;
 import org.apache.lucene.tests.store.MockDirectoryWrapper;
 import org.apache.lucene.tests.util.LuceneTestCase;
 
-class SimpleReplicaNode extends ReplicaNode
+class SimpleReplicaNode : ReplicaNode
 {
     final int tcpPort;
     final Jobs jobs;
