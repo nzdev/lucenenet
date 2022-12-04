@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+using J2N;
 using System;
 
 namespace Lucene.Net.Replicator.Nrt;
@@ -69,7 +70,7 @@ public CopyOneFile(
                 + (8 + bytesToCopy));
     }
 
-    copyStartNS = System.nanoTime();
+    copyStartNS = Time.NanoTime();
     this.metaData = metaData;
     dest.startCopyFile(name);
 }
@@ -146,7 +147,7 @@ public boolean visit() throws IOException
                         "file %s: done copying [%s, %.3fms]",
                         name,
                         Node.bytesToString(metaData.length),
-                        (System.nanoTime() - copyStartNS) / (double)TimeUnit.MILLISECONDS.toNanos(1)));
+                        (Time.NanoTime() - copyStartNS) / (double)TimeUnit.MILLISECONDS.toNanos(1)));
             }
 
             return true;

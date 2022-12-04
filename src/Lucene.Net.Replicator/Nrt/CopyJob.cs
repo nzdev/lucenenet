@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
+using J2N;
 using J2N.Collections.Generic;
+using J2N.Threading.Atomic;
 using Lucene.Net.Replicator.Nrt;
 using System.IO;
 
@@ -39,80 +41,84 @@ namespace Lucene.Net.Replicator.Nrt
      *
      * @lucene.experimental
      */
-    public abstract class CopyJob : Comparable<CopyJob> {
-    private static readonly AtomicLong counter = new AtomicLong();
-    protected readonly ReplicaNode dest;
+    public abstract class CopyJob : Comparable<CopyJob>
+    {
+        private static readonly AtomicInt64 counter = new AtomicInt64();
+        protected readonly ReplicaNode dest;
 
-    protected readonly Map<String, FileMetaData> files;
+        protected readonly Map<String, FileMetaData> files;
 
-    public readonly long ord = counter.incrementAndGet();
+        public readonly long ord = counter.incrementAndGet();
 
-    /** True for an NRT sync, false for pre-copying a newly merged segment */
-    public readonly boolean highPriority;
+        /** True for an NRT sync, false for pre-copying a newly merged segment */
+        public readonly bool highPriority;
 
-    public readonly OnceDone onceDone;
+        public readonly OnceDone onceDone;
 
-    public readonly long startNS = System.nanoTime();
+        public readonly long startNS = Time.NanoTime();
 
-    public readonly string reason;
+        public readonly string reason;
 
-    protected readonly List<Map.Entry<String, FileMetaData>> toCopy;
+        protected readonly List<Map.Entry<String, FileMetaData>> toCopy;
 
-    protected long totBytes;
+        protected long totBytes;
 
-    protected long totBytesCopied;
+        protected long totBytesCopied;
 
-    // The file we are currently copying:
-    protected CopyOneFile current;
+        // The file we are currently copying:
+        protected CopyOneFile current;
 
-    // Set when we are cancelled
-    protected volatile Throwable exc;
-    protected volatile String cancelReason;
+        // Set when we are cancelled
+        protected volatile Throwable exc;
+        protected volatile string cancelReason;
 
-    // toString may concurrently access this:
-    protected final Map<String, String> copiedFiles = new ConcurrentHashMap<>();
+        // toString may concurrently access this:
+        protected readonly Map<String, String> copiedFiles = new ConcurrentHashMap<>();
 
-    protected CopyJob(
-        String reason,
+        /// <exception cref="IOException"/>
+        protected CopyJob(
+        string reason,
         Map<String, FileMetaData> files,
         ReplicaNode dest,
         boolean highPriority,
         OnceDone onceDone)
-      throws IOException
-    {
-    this.reason = reason;
-    this.files = files;
-    this.dest = dest;
-    this.highPriority = highPriority;
-    this.onceDone = onceDone;
+        {
+            this.reason = reason;
+            this.files = files;
+            this.dest = dest;
+            this.highPriority = highPriority;
+            this.onceDone = onceDone;
 
-    // Exceptions in here are bad:
-    try {
-            this.toCopy = dest.getFilesToCopy(this.files);
-        } catch (Throwable t) {
-            cancel("exc during init", t);
-            throw new CorruptIndexException("exception while checking local files", "n/a", t);
+            // Exceptions in here are bad:
+            try
+            {
+                this.toCopy = dest.getFilesToCopy(this.files);
+            }
+            catch (Throwable t)
+            {
+                cancel("exc during init", t);
+                throw new CorruptIndexException("exception while checking local files", "n/a", t);
+            }
         }
-    }
 
-    /** Callback invoked by CopyJob once all files have (finally) finished copying */
-    public interface OnceDone
-    {
-        public void run(CopyJob job) throws IOException;
-    }
+        /** Callback invoked by CopyJob once all files have (finally) finished copying */
+        public interface OnceDone
+        {
+            public void run(CopyJob job) throws IOException;
+        }
 
-    /**
-     * Transfers whatever tmp files were already copied in this previous job and cancels the previous
-     * job
-     */
-    public synchronized void transferAndCancel(CopyJob prevJob) throws IOException
-    {
-        synchronized (prevJob) {
+        /**
+         * Transfers whatever tmp files were already copied in this previous job and cancels the previous
+         * job
+         */
+        public synchronized void transferAndCancel(CopyJob prevJob) throws IOException
+        {
+            synchronized (prevJob) {
             dest.message("CopyJob: now transfer prevJob " + prevJob);
             try
             {
                 _transferAndCancel(prevJob);
-            }
+    }
             catch (Throwable t)
             {
                 dest.message("xfer: exc during transferAndCancel");
@@ -123,23 +129,23 @@ namespace Lucene.Net.Replicator.Nrt
     }
 
     private synchronized void _transferAndCancel(CopyJob prevJob) throws IOException
-    {
+{
 
-        // Caller must already be sync'd on prevJob:
-        assert Thread.holdsLock(prevJob);
+    // Caller must already be sync'd on prevJob:
+    assert Thread.holdsLock(prevJob);
 
     if (prevJob.exc != null) {
-            // Already cancelled
-            dest.message("xfer: prevJob was already cancelled; skip transfer");
-            return;
-        }
+        // Already cancelled
+        dest.message("xfer: prevJob was already cancelled; skip transfer");
+        return;
+    }
 
-        // Cancel the previous job
-        prevJob.exc = new Throwable();
+    // Cancel the previous job
+    prevJob.exc = new Throwable();
 
-    // Carry over already copied files that we also want to copy
-    Iterator<Map.Entry<String, FileMetaData>> it = toCopy.iterator();
-    long bytesAlreadyCopied = 0;
+// Carry over already copied files that we also want to copy
+Iterator<Map.Entry<String, FileMetaData>> it = toCopy.iterator();
+long bytesAlreadyCopied = 0;
 
 // Iterate over all files we think we need to copy:
 while (it.hasNext())
@@ -152,7 +158,7 @@ while (it.hasNext())
         // This fileName is common to both jobs, and the old job already finished copying it (to a
         // temp file), so we keep it:
         long fileLength = ent.getValue().length;
-    bytesAlreadyCopied += fileLength;
+        bytesAlreadyCopied += fileLength;
         dest.message(
             "xfer: carry over already-copied file "
                 + fileName
@@ -170,48 +176,48 @@ while (it.hasNext())
         it.remove();
     }
     else if (prevJob.current != null && prevJob.current.name.equals(fileName))
-{
-    // This fileName is common to both jobs, and it's the file that the previous job was in the
-    // process of copying.  In this case
-    // we continue copying it from the prevoius job.  This is important for cases where we are
-    // copying over a large file
-    // because otherwise we could keep failing the NRT copy and restarting this file from the
-    // beginning and never catch up:
-    dest.message(
-        "xfer: carry over in-progress file "
-            + fileName
-            + " ("
-            + prevJob.current.tmpName
-            + ") bytesCopied="
-            + prevJob.current.getBytesCopied()
-            + " of "
-            + prevJob.current.bytesToCopy);
-    bytesAlreadyCopied += prevJob.current.getBytesCopied();
+    {
+        // This fileName is common to both jobs, and it's the file that the previous job was in the
+        // process of copying.  In this case
+        // we continue copying it from the prevoius job.  This is important for cases where we are
+        // copying over a large file
+        // because otherwise we could keep failing the NRT copy and restarting this file from the
+        // beginning and never catch up:
+        dest.message(
+            "xfer: carry over in-progress file "
+                + fileName
+                + " ("
+                + prevJob.current.tmpName
+                + ") bytesCopied="
+                + prevJob.current.getBytesCopied()
+                + " of "
+                + prevJob.current.bytesToCopy);
+        bytesAlreadyCopied += prevJob.current.getBytesCopied();
 
-    assert current == null;
+        assert current == null;
 
-    // must set current first, before writing/read to c.in/out in case that hits an exception,
-    // so that we then close the temp
-    // IndexOutput when cancelling ourselves:
-    current = newCopyOneFile(prevJob.current);
+        // must set current first, before writing/read to c.in/out in case that hits an exception,
+        // so that we then close the temp
+        // IndexOutput when cancelling ourselves:
+        current = newCopyOneFile(prevJob.current);
 
-    // Tell our new (primary) connection we'd like to copy this file first, but resuming from
-    // how many bytes we already copied last time:
-    // We do this even if bytesToCopy == bytesCopied, because we still need to readLong() the
-    // checksum from the primary connection:
-    assert prevJob.current.getBytesCopied() <= prevJob.current.bytesToCopy;
+        // Tell our new (primary) connection we'd like to copy this file first, but resuming from
+        // how many bytes we already copied last time:
+        // We do this even if bytesToCopy == bytesCopied, because we still need to readLong() the
+        // checksum from the primary connection:
+        assert prevJob.current.getBytesCopied() <= prevJob.current.bytesToCopy;
 
-    prevJob.current = null;
+        prevJob.current = null;
 
-    totBytes += current.metaData.length;
+        totBytes += current.metaData.length;
 
-    // So it's not in our copy list anymore:
-    it.remove();
-}
-else
-{
-    dest.message("xfer: file " + fileName + " will be fully copied");
-}
+        // So it's not in our copy list anymore:
+        it.remove();
+    }
+    else
+    {
+        dest.message("xfer: file " + fileName + " will be fully copied");
+    }
 }
 dest.message("xfer: " + bytesAlreadyCopied + " bytes already copied of " + totBytes);
 

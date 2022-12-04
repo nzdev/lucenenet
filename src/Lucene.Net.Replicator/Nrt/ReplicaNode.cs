@@ -221,7 +221,7 @@ namespace Lucene.Net.Replicator.Nrt
                     // "forked"), and we can't overwrite open
                     // files on Windows:
 
-                    final long initSyncStartNS = System.nanoTime();
+                    final long initSyncStartNS = Time.NanoTime();
 
                     message(
                         "top: init: primary changed while we were down myPrimaryGen="
@@ -326,7 +326,7 @@ namespace Lucene.Net.Replicator.Nrt
                             Locale.ROOT,
                             "top: %d: start: done sync: took %.3fs for %s, opened NRT reader version=%d",
                             id,
-                            (System.nanoTime() - initSyncStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
+                            (Time.NanoTime() - initSyncStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
                             bytesToString(job.getTotalBytesCopied()),
                             job.getCopyState().version));
 
@@ -544,7 +544,7 @@ namespace Lucene.Net.Replicator.Nrt
                 String.format(
                     Locale.ROOT,
                     "top: done sync: took %.3fs for %s, opened NRT reader version=%d markerCount=%d",
-                    (System.nanoTime() - startNS) / (double)TimeUnit.SECONDS.toNanos(1),
+                    (Time.NanoTime() - startNS) / (double)TimeUnit.SECONDS.toNanos(1),
                     bytesToString(job.getTotalBytesCopied()),
                     copyState.version,
                     markerCount));
@@ -638,7 +638,7 @@ namespace Lucene.Net.Replicator.Nrt
                 return null;
             }
 
-            final long startNS = System.nanoTime();
+            final long startNS = Time.NanoTime();
 
             message("top: newNRTPoint");
             CopyJob job = null;

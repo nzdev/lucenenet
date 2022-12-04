@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+using J2N.Threading.Atomic;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
@@ -65,7 +66,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// </summary>
         readonly Set<String> finishedMergedFiles = Collections.synchronizedSet(new HashSet<String>());
 
-        private readonly AtomicInteger copyingCount = new AtomicInteger();
+        private readonly AtomicInt32 copyingCount = new AtomicInt32();
 
         /// <exception cref="IOException"/>
         public PrimaryNode(
@@ -402,10 +403,10 @@ namespace Lucene.Net.Replicator.Nrt
                     {
                         return;
                     }
-                    long waitStartNs = System.nanoTime();
+                    long waitStartNs = Time.NanoTime();
                     // Wait for replicas to finish or crash or timeout:
                     while (remoteCloseTimeoutMs < 0
-                        || (System.nanoTime() - waitStartNs) / 1_000_000 < remoteCloseTimeoutMs)
+                        || (Time.NanoTime() - waitStartNs) / 1_000_000 < remoteCloseTimeoutMs)
                     {
                         int count = copyingCount.get();
                         if (count == 0)

@@ -19,6 +19,7 @@ using Lucene.Net.Search;
 using Lucene.Net.Store;
 using System;
 using Lucene.Net.Codecs;
+using J2N;
 
 import java.io.EOFException;
 import java.io.FileNotFoundException;
@@ -77,7 +78,7 @@ namespace Lucene.Net.Replicator.Nrt
         public static long globalStartNS;
 
         /** When this node was started */
-        public static readonly long localStartNS = System.nanoTime();
+        public static readonly long localStartNS = Time.NanoTime();
 
         /** For debug logging */
         protected readonly PrintStream printStream;
@@ -122,7 +123,7 @@ namespace Lucene.Net.Replicator.Nrt
         {
             if (printStream != null)
             {
-                long now = System.nanoTime();
+                long now = Time.NanoTime();
                 printStream.println(
                     String.format(
                         Locale.ROOT,
@@ -138,7 +139,7 @@ namespace Lucene.Net.Replicator.Nrt
         {
             if (printStream != null)
             {
-                long now = System.nanoTime();
+                long now = Time.NanoTime();
                 printStream.println(
                     String.format(
                         Locale.ROOT,
@@ -155,7 +156,7 @@ namespace Lucene.Net.Replicator.Nrt
         {
             if (printStream != null)
             {
-                long now = System.nanoTime();
+                long now = Time.NanoTime();
                 printStream.println(
                     String.format(
                         Locale.ROOT,
