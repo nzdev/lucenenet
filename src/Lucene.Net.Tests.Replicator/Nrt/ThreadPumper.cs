@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+using System.Threading;
+
 namespace Lucene.Net.Replicator.Nrt
 
 import java.io.BufferedReader;
@@ -27,7 +29,7 @@ import java.util.regex.Pattern;
 /** A pipe thread. It'd be nice to reuse guava's implementation for this... */
 class ThreadPumper
 {
-    public static Thread start(
+    public static Thread Start(
         final Runnable onExit,
         final BufferedReader from,
         final PrintStream to,

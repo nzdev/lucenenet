@@ -86,7 +86,7 @@ namespace Lucene.Net.Replicator.Nrt
             this.buffer = other.buffer;
         }
         /// <exception cref="IOException"/>
-        public override void Close()
+        public void Close()
         {
             output.Dispose();
             dest.FinishCopyFile(name);
@@ -140,7 +140,6 @@ namespace Lucene.Net.Replicator.Nrt
                     {
                         dest.Message(
                             String.Format(
-                                Locale.ROOT,
                                 "file %s: done copying [%s, %.3fms]",
                                 name,
                                 Node.BytesToString(metaData.length),
@@ -166,5 +165,7 @@ namespace Lucene.Net.Replicator.Nrt
         {
             return bytesCopied;
         }
+
+        public void Dispose() => Close();
     }
 }

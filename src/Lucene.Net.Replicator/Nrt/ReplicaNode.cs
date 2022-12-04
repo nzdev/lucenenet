@@ -91,9 +91,9 @@ namespace Lucene.Net.Replicator.Nrt
         /// <param name="id"></param>
         /// <param name="dir"></param>
         /// <param name="searcherFactory"></param>
-        /// <param name="TextWriter"></param>
+        /// <param name="textWriter"></param>
         /// <exception cref="IOException"/>
-        public ReplicaNode(int id, Directory dir, SearcherFactory searcherFactory, TextWriter TextWriter) : base(id, dir, searcherFactory, TextWriter)
+        public ReplicaNode(int id, Directory dir, SearcherFactory searcherFactory, TextWriter textWriter) : base(id, dir, searcherFactory, textWriter)
         {
 
             if (dir.GetPendingDeletions().Any())
@@ -119,8 +119,8 @@ namespace Lucene.Net.Replicator.Nrt
             catch (Exception t)
             {
                 Message("exc on init:");
-                t.PrintStackTrace(TextWriter);
-                throw t;
+                t.PrintStackTrace(textWriter);
+                throw;
             }
             finally
             {
@@ -287,7 +287,7 @@ namespace Lucene.Net.Replicator.Nrt
                         {
                             job =
                                 NewCopyJob(
-                                    "sync on startup replica=" + Name() + " myVersion=" + infos.getVersion(),
+                                    "sync on startup replica=" + Name() + " myVersion=" + infos.Version,
                                     null,
                                     null,
                                     true,
@@ -334,9 +334,9 @@ namespace Lucene.Net.Replicator.Nrt
                         infos = syncInfos;
                         if (Debugging.AssertsEnabled)
                         {
-                            Debugging.Assert(infos.GetVersion() == job.GetCopyState().version);
+                            Debugging.Assert(infos.Version == job.GetCopyState().version);
                         }
-                        Message("  version=" + infos.GetVersion() + " segments=" + infos.ToString());
+                        Message("  version=" + infos.Version + " segments=" + infos.ToString());
                         Message("top: init: incRef nrtFiles=" + job.GetFileNames());
                         deleter.IncRef(job.GetFileNames());
                         Message("top: init: decRef lastNRTFiles=" + lastNRTFiles);
