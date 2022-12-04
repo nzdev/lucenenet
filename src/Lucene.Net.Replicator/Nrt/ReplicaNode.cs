@@ -28,6 +28,7 @@ using Directory = Lucene.Net.Store.Directory;
 using Version = Lucene.Net.Util.LuceneVersion;
 using JCG = J2N.Collections.Generic;
 using Lucene;
+using Lucene.Net.Diagnostics;
 //import java.io.TextWriter;
 //import java.nio.ByteBuffer;
 //import java.util.ArrayList;
@@ -161,7 +162,7 @@ namespace Lucene.Net.Replicator.Nrt
                     {
                         long gen =
                             long.Parse(
-                                fileName.Substring(IndexFileNames.PENDING_SEGMENTS.length() + 1),
+                                fileName.Substring(IndexFileNames.PENDING_SEGMENTS.Length + 1),
                                 Character.MaxRadix);
                         if (gen > maxPendingGen)
                         {
@@ -181,31 +182,34 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     Message("top: init: read existing segments commit " + segmentsFileName);
                     infos = SegmentInfos.ReadCommit(dir, segmentsFileName);
-                    message("top: init: segments: " + infos.ToString() + " version=" + infos.FetVersion());
-                    Collection<String> indexFiles = infos.files(false);
+                    Message("top: init: segments: " + infos.ToString() + " version=" + infos.FetVersion());
+                    ICollection<string> indexFiles = infos.files(false);
 
-                    lastCommitFiles.add(segmentsFileName);
-                    lastCommitFiles.addAll(indexFiles);
+                    lastCommitFiles.Add(segmentsFileName);
+                    lastCommitFiles.AddAll(indexFiles);
 
                     // Always protect the last commit:
                     deleter.IncRef(lastCommitFiles);
 
-                    lastNRTFiles.addAll(indexFiles);
-                    deleter.incRef(lastNRTFiles);
-                    message("top: commitFiles=" + lastCommitFiles);
-                    message("top: nrtFiles=" + lastNRTFiles);
+                    lastNRTFiles.AddAll(indexFiles);
+                    deleter.IncRef(lastNRTFiles);
+                    Message("top: commitFiles=" + lastCommitFiles);
+                    Message("top: nrtFiles=" + lastNRTFiles);
                 }
 
-                message("top: delete unknown files on init: all files=" + Arrays.toString(dir.listAll()));
+                Message("top: delete unknown files on init: all files=" + Arrays.toString(dir.listAll()));
                 deleter.DeleteUnknownFiles(segmentsFileName);
-                message(
+                Message(
                     "top: done delete unknown files on init: all files=" + Arrays.toString(dir.listAll()));
 
                 String s = infos.GetUserData().get(PRIMARY_GEN_KEY);
                 long myPrimaryGen;
                 if (s == null)
                 {
-                    assert infos.Size() == 0;
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(infos.Size() == 0);
+                    }
                     myPrimaryGen = -1;
                 }
                 else
@@ -227,7 +231,7 @@ namespace Lucene.Net.Replicator.Nrt
                     // "forked"), and we can't overwrite open
                     // files on Windows:
 
-                    readonly long initSyncStartNS = Time.NanoTime();
+                    /*readonly*/ long initSyncStartNS = Time.NanoTime();
 
                     Message(
                         "top: init: primary changed while we were down myPrimaryGen="
@@ -247,8 +251,11 @@ namespace Lucene.Net.Replicator.Nrt
                     Message("top: now delete starting commit point " + segmentsFileName);
 
                     // If this throws exc (e.g. due to virus checker), we cannot start this replica:
-                    assert deleter.GetRefCount(segmentsFileName) == 1;
-                    deleter.decRef(Collections.singleton(segmentsFileName));
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(deleter.GetRefCount(segmentsFileName) == 1);
+                    }
+                    deleter.DecRef(Collections.singleton(segmentsFileName));
 
                     if (dir.GetPendingDeletions().isEmpty() == false)
                     {
@@ -262,8 +269,11 @@ namespace Lucene.Net.Replicator.Nrt
                     }
 
                     // So we don't later try to decRef it (illegally) again:
-                    bool didRemove = lastCommitFiles.remove(segmentsFileName);
-                    assert didRemove;
+                    bool didRemove = lastCommitFiles.Remove(segmentsFileName);
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(didRemove);
+                    }
 
                     while (true)
                     {
@@ -314,16 +324,18 @@ namespace Lucene.Net.Replicator.Nrt
                     // Must always commit to a larger generation than what's currently in the index:
                     syncInfos.UpdateGeneration(infos);
                     infos = syncInfos;
-
-                    assert infos.GetVersion() == job.GetCopyState().version;
-                    Message("  version=" + infos.getVersion() + " segments=" + infos.toString());
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(infos.GetVersion() == job.GetCopyState().version);
+                    }
+                    Message("  version=" + infos.GetVersion() + " segments=" + infos.ToString());
                     Message("top: init: incRef nrtFiles=" + job.GetFileNames());
-                    deleter.incRef(job.GetFileNames());
+                    deleter.IncRef(job.GetFileNames());
                     Message("top: init: decRef lastNRTFiles=" + lastNRTFiles);
-                    deleter.decRef(lastNRTFiles);
+                    deleter.DecRef(lastNRTFiles);
 
                     lastNRTFiles.Clear();
-                    lastNRTFiles.AddAll(job.getFileNames());
+                    lastNRTFiles.AddAll(job.GetFileNames());
 
                     Message("top: init: set lastNRTFiles=" + lastNRTFiles);
                     lastFileMetaData = job.GetCopyState().files;
@@ -442,7 +454,7 @@ namespace Lucene.Net.Replicator.Nrt
                 lastCommitFiles.Clear();
                 lastCommitFiles.AddAll(indexFiles);
                 lastCommitFiles.Add(segmentsFileName);
-                message("top: commit version=" + infos.GetVersion() + " files now " + lastCommitFiles);
+                Message("top: commit version=" + infos.GetVersion() + " files now " + lastCommitFiles);
             }
         }
 
@@ -475,7 +487,10 @@ namespace Lucene.Net.Replicator.Nrt
                 }
                 else
                 {
-                    assert job.getFailed();
+                    if (Debugging.AssertsEnabled)
+                    {
+                        Debugging.Assert(job.getFailed());
+                    }
                     Message("top: skip clear curNRTCopy: we were cancelled; job=" + job);
                 }
 
@@ -490,7 +505,10 @@ namespace Lucene.Net.Replicator.Nrt
                 // Turn byte[] back to SegmentInfos:
                 SegmentInfos infos =
                     SegmentInfos.ReadCommit(dir, toIndexInput(copyState.infosBytes), copyState.gen);
-                assert infos.GetVersion() == copyState.version;
+                if (Debugging.AssertsEnabled)
+                {
+                    Debugging.Assert(infos.GetVersion() == copyState.version);
+                }
 
                 Message("  version=" + infos.GetVersion() + " segments=" + infos.ToString());
 
@@ -499,7 +517,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 // Must first incRef new NRT files, then decRef old ones, to make sure we don't remove an NRT
                 // file that's in common to both:
-                Collection<String> newFiles = copyState.files.keySet();
+                ICollection<string> newFiles = copyState.files.keySet();
                 Message("top: incRef newNRTFiles=" + newFiles);
                 deleter.IncRef(newFiles);
 
@@ -610,10 +628,13 @@ namespace Lucene.Net.Replicator.Nrt
             // merged segments, it's still a bit risky to rely solely on checksum/file length to catch the
             // difference, so we defensively discard
             // here and re-copy in that case:
-            maybeNewPrimary(newPrimaryGen);
+            MaybeNewPrimary(newPrimaryGen);
 
             // Caller should not "publish" us until we have finished .start():
-            assert mgr != null;
+            if (Debugging.AssertsEnabled)
+            {
+                Debugging.Assert(mgr != null);
+            }
 
             if ("idle".Equals(state))
             {
@@ -681,25 +702,32 @@ namespace Lucene.Net.Replicator.Nrt
     }
     return null;
 }
-
-assert newPrimaryGen == job.GetCopyState().primaryGen;
+if (Debugging.AssertsEnabled)
+{
+    Debugging.Assert(newPrimaryGen == job.GetCopyState().primaryGen);
+}
 
 ICollection<String> newNRTFiles = job.GetFileNames();
 
-message("top: newNRTPoint: job files=" + newNRTFiles);
+Message("top: newNRTPoint: job files=" + newNRTFiles);
 
 if (curNRTCopy != null)
 {
-    job.transferAndCancel(curNRTCopy);
-    assert curNRTCopy.GetFailed();
+    job.TransferAndCancel(curNRTCopy);
+    if (Debugging.AssertsEnabled)
+    {
+        Debugging.Assert(curNRTCopy.GetFailed());
+    }
 }
 
 curNRTCopy = job;
 
 foreach (String fileName in curNRTCopy.GetFileNamesToCopy())
 {
-    assert lastCommitFiles.contains(fileName) == false
-          : "fileName=" + fileName + " is in lastCommitFiles and is being copied?";
+    if (Debugging.AssertsEnabled)
+    {
+        Debugging.Assert(lastCommitFiles.Contains(fileName) == false, "fileName=" + fileName + " is in lastCommitFiles and is being copied?");
+    }
     synchronized(mergeCopyJobs) {
         foreach (CopyJob mergeJob ib mergeCopyJobs)
         {
@@ -820,9 +848,8 @@ else
     Message("top: keep current lastPrimaryGen=" + lastPrimaryGen);
 }
 }
-
+/// <exception cref="IOException"/>
 protected synchronized CopyJob LaunchPreCopyMerge(AtomicBoolean finished, long newPrimaryGen, IDictionary<string, FileMetaData> files)
-      throws IOException
 {
 
     CopyJob job;
@@ -832,7 +859,8 @@ protected synchronized CopyJob LaunchPreCopyMerge(AtomicBoolean finished, long n
     Set<String> fileNames = files.Keys;
     message("now pre-copy warm merge files=" + fileNames + " primaryGen=" + newPrimaryGen);
 
-    foreach (string fileName in fileNames) {
+    foreach (string fileName in fileNames)
+    {
         assert pendingMergeFiles.Contains(fileName) == false
           : "file \"" + fileName + "\" is already being warmed!";
         assert lastNRTFiles.Cntains(fileName) == false

@@ -70,6 +70,11 @@ namespace Lucene.Net.Index
         public static readonly string COMPOUND_FILE_ENTRIES_EXTENSION = "cfe";
 
         /// <summary>
+        /// Name of pending index segment file
+        /// </summary>
+        public static readonly string PENDING_SEGMENTS = "pending_segments";
+
+        /// <summary>
         /// This array contains all filename extensions used by
         /// Lucene's index files, with one exception, namely the
         /// extension made up from  <c>.s</c> + a number.
