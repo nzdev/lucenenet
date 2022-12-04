@@ -1,4 +1,5 @@
 ﻿using Lucene.Net.Diagnostics;
+using Lucene.Net.Index;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
 using System;
@@ -274,5 +275,46 @@ namespace Lucene.Net.Codecs
             @in.Seek(@in.Length - FooterLength());
             return CheckFooter(@in);
         }
+
+        ///<summary>
+        /// Retrieves the full index header from the provided <see cref="IndexInput"/>. This throws <see cref="CorruptIndexException"/>
+        /// if this file does not appear to be an index file.
+        ///</summary>
+        /// <exception cref="IOException"/>
+        public static byte[] ReadIndexHeader(IndexInput input)
+        {
+            input.Seek(0);
+            int actualHeader = ReadBEInt(input);
+            if (actualHeader != CODEC_MAGIC)
+            {
+                throw new CorruptIndexException(
+                    "codec header mismatch: actual header="
+                        + actualHeader
+                        + " vs expected header="
+                        + CODEC_MAGIC
+                        + input.ToString());
+            }
+            string codec = input.ReadString();
+            ReadBEInt(input);
+            input.Seek(input.Position + StringHelper.ID_LENGTH);
+            int suffixLength = input.ReadByte() & 0xFF;
+            byte[] bytes = new byte[HeaderLength(codec) + StringHelper.ID_LENGTH + 1 + suffixLength];
+            input.Seek(0);
+            input.ReadBytes(bytes, 0, bytes.Length);
+            return bytes;
+        }
+
+        ///<summary>
+        /// read int value from header / footer with big endian order
+        ///</summary>
+        /// <exception cref="IOException"/>
+        public static int ReadBEInt(DataInput input)
+        {
+            return ((input.ReadByte() & 0xFF) << 24)
+                | ((input.ReadByte() & 0xFF) << 16)
+                | ((input.ReadByte() & 0xFF) << 8)
+                | (input.ReadByte() & 0xFF);
+        }
+
     }
 }

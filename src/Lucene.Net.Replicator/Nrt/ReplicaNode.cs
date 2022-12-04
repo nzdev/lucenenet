@@ -34,36 +34,52 @@ using System.Linq;
 
 namespace Lucene.Net.Replicator.Nrt
 {
-    /**
-     * Replica node, that pulls index changes from the primary node by copying newly flushed or merged
-     * index files.
-     *
-     * @lucene.experimental
-     */
+    ///<summary>
+    /// Replica node, that pulls index changes from the primary node by copying newly flushed or merged
+    /// index files.
+    ///</summary>
+    ///<remarks>
+    /// @lucene.experimental
+    ///</remarks>
     public abstract class ReplicaNode : Node
     {
 
         ReplicaFileDeleter deleter;
 
-        /** IncRef'd files in the current commit point: */
+
+        ///<summary>
+        /// IncRef'd files in the current commit point: 
+        /// </summary>
         private readonly ICollection<string> lastCommitFiles = new JCG.HashSet<string>();
 
-        /** IncRef'd files in the current NRT point: */
+        ///<summary>
+        /// IncRef'd files in the current NRT point:
+        /// </summary>
         protected readonly ICollection<string> lastNRTFiles = new JCG.HashSet<string>();
 
-        /** Currently running merge pre-copy jobs */
+        ///<summary>
+        /// Currently running merge pre-copy jobs
+        /// </summary>
         protected readonly ISet<CopyJob> mergeCopyJobs = new ConcurrentHashSet<CopyJob>();
 
-        /** Non-null when we are currently copying files from a new NRT point: */
+        ///<summary>
+        ///  Non-null when we are currently copying files from a new NRT point:
+        /// </summary>
         protected CopyJob curNRTCopy;
 
-        /** We hold this to ensure an external IndexWriter cannot also open on our directory: */
+        ///<summary>
+        /// We hold this to ensure an external IndexWriter cannot also open on our directory:
+        /// </summary>
         private readonly Lock writeFileLock;
 
-        /** Merged segment files that we pre-copied, but have not yet made visible in a new NRT point. */
+        ///<summary>
+        /// Merged segment files that we pre-copied, but have not yet made visible in a new NRT point.
+        /// </summary>
         readonly ISet<string> pendingMergeFiles = new  ConcurrentHashSet<string>();
 
-        /** Primary gen last time we successfully replicated: */
+        ///<summary>
+        /// Primary gen last time we successfully replicated:
+        /// </summary>
         protected long lastPrimaryGen;
 
         /// <summary>
@@ -241,7 +257,7 @@ namespace Lucene.Net.Replicator.Nrt
                     }
                     deleter.DecRef(Collections.singleton(segmentsFileName));
 
-                    if (dir.GetPendingDeletions().isEmpty() == false)
+                    if (dir.GetPendingDeletions().Any())
                     {
                         // If e.g. virus checker blocks us from deleting, we absolutely cannot start this node
                         // else there is a definite window during
@@ -287,7 +303,7 @@ namespace Lucene.Net.Replicator.Nrt
                         catch (IOException ioe)
                         {
                             job.Cancel("startup failed", ioe);
-                            if (ioe.Message.contains("checksum mismatch after file copy"))
+                            if (ioe.Message.Contains("checksum mismatch after file copy"))
                             {
                                 // OK-ish
                                 Message("top: failed to copy: " + ioe + "; retrying");

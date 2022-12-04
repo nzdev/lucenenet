@@ -56,8 +56,7 @@ namespace Lucene.Net.Replicator.Nrt
                 dir.OpenInput(fileName, IOContext.DEFAULT).Dispose();
                 return true;
             }
-            //@SuppressWarnings("unused")
-            catch (Exception e) when (e is NoSuchFileException || e is FileNotFoundException)
+            catch (FileNotFoundException)
             {
                 return false;
             }

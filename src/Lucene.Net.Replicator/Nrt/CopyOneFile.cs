@@ -120,7 +120,7 @@ namespace Lucene.Net.Replicator.Nrt
                     // Paranoia: make sure the primary node is not smoking crack, by somehow sending us an
                     // already corrupted file whose checksum (in its
                     // footer) disagrees with reality:
-                    long actualChecksumIn = CodecUtil.ReadBELong(in);
+                    long actualChecksumIn = CodecUtil.ReadBELong(input);
                     if (actualChecksumIn != checksum)
                     {
                         dest.Message(
@@ -134,7 +134,7 @@ namespace Lucene.Net.Replicator.Nrt
                     }
                     CodecUtil.WriteBELong(out, checksum);
                     bytesCopied += Long.BYTES;
-                    close();
+                    Close();
 
                     if (Node.VERBOSE_FILES)
                     {

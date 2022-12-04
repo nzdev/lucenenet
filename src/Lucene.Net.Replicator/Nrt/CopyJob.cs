@@ -323,7 +323,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     dest.Message("remove partial file " + current.tmpName);
                 }
-                dest.deleter.deleteNewFile(current.tmpName);
+                dest.deleter.DeleteNewFile(current.tmpName);
                 current = null;
             }
         }

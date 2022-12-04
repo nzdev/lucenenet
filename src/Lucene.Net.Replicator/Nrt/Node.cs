@@ -20,20 +20,10 @@ using Lucene.Net.Store;
 using System;
 using Lucene.Net.Codecs;
 using J2N;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using Directory = Lucene.Net.Store.Directory;
 using System.Threading;
-
-//import java.io.EOFException;
-//import java.io.FileNotFoundException;
-//import java.io.IOException;
-//import java.io.TextWriter;
-//import java.nio.file.NoSuchFileException;
-//import java.util.Locale;
-//import java.util.Map;
-//import java.util.concurrent.TimeUnit;
 
 
 namespace Lucene.Net.Replicator.Nrt
@@ -131,10 +121,9 @@ namespace Lucene.Net.Replicator.Nrt
                 long now = Time.NanoTime();
                 TextWriter.WriteLine(
                     String.Format(
-                        Locale.ROOT,
                         "%5.3fs %5.1fs:           [%11s] %s",
-                        (now - globalStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
-                        (now - localStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
+                        (now - globalStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
+                        (now - localStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                         Thread.CurrentThread.Name,
                         message));
             }
@@ -147,10 +136,9 @@ namespace Lucene.Net.Replicator.Nrt
                 long now = Time.NanoTime();
                 TextWriter.WriteLine(
                     String.Format(
-                        Locale.ROOT,
                         "%5.3fs %5.1fs:         N%d [%11s] %s",
-                        (now - globalStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
-                        (now - localStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
+                        (now - globalStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
+                        (now - localStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                         id,
                         Thread.CurrentThread.Name,
                         message));
@@ -167,8 +155,8 @@ namespace Lucene.Net.Replicator.Nrt
                     String.Format(
                         Locale.ROOT,
                         "%5.3fs %5.1fs: %7s %2s [%11s] %s",
-                        (now - globalStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
-                        (now - localStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
+                        (now - globalStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
+                        (now - localStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                         state,
                         Name(),
                          Thread.CurrentThread.Name,
@@ -178,8 +166,8 @@ namespace Lucene.Net.Replicator.Nrt
 
         public String Name()
         {
-            char mode = this instanceof PrimaryNode ? 'P' : 'R';
-            return mode + Integer.toString(id);
+            char mode = this is PrimaryNode ? 'P' : 'R';
+            return mode + id.ToString();
         }
 
         public abstract bool IsClosed();
@@ -190,7 +178,7 @@ namespace Lucene.Net.Replicator.Nrt
             IndexSearcher searcher = mgr.Acquire();
             try
             {
-                return ((DirectoryReader)searcher.GetIndexReader()).getVersion();
+                return ((DirectoryReader)searcher.GetIndexReader()).GetVersion();
             }
             finally
             {
@@ -198,7 +186,7 @@ namespace Lucene.Net.Replicator.Nrt
             }
         }
 
-        public static String BytesToString(long bytes)
+        public static string BytesToString(long bytes)
         {
             if (bytes < 1024)
             {
@@ -206,15 +194,15 @@ namespace Lucene.Net.Replicator.Nrt
             }
             else if (bytes < 1024 * 1024)
             {
-                return String.Format(Locale.ROOT, "%.1f KB", bytes / 1024.);
+                return string.Format("%.1f KB", bytes / 1024.0);
             }
             else if (bytes < 1024 * 1024 * 1024)
             {
-                return String.Format(Locale.ROOT, "%.1f MB", bytes / 1024. / 1024.);
+                return string.Format("%.1f MB", bytes / 1024.0 / 1024.0);
             }
             else
             {
-                return String.Format(Locale.ROOT, "%.1f GB", bytes / 1024. / 1024. / 1024.);
+                return string.Format("%.1f GB", bytes / 1024.0 / 1024.0 / 1024.0);
             }
         }
 
@@ -228,10 +216,10 @@ namespace Lucene.Net.Replicator.Nrt
          */
 
         /// <exception cref="IOException"/>
-        public FileMetaData ReadLocalFileMetaData(String fileName)
+        public FileMetaData ReadLocalFileMetaData(string fileName)
         {
 
-            IDictionary<String, FileMetaData> cache = lastFileMetaData;
+            IDictionary<string, FileMetaData> cache = lastFileMetaData;
             FileMetaData result;
             if (cache != null)
             {
@@ -250,14 +238,16 @@ namespace Lucene.Net.Replicator.Nrt
                 long length;
                 byte[] header;
                 byte[] footer;
-                using (IndexInput @in = dir.OpenInput(fileName, IOContext.DEFAULT))
+                IndexInput input = null;
+                try
                 {
+                    input = dir.OpenInput(fileName, IOContext.DEFAULT);
                     try
                     {
-                        length = @in.Length;
-                        header = CodecUtil.ReadIndexHeader(@in);
-                        footer = CodecUtil.ReadFooter(@in);
-                        checksum = CodecUtil.RetrieveChecksum(@in);
+                        length = input.Length;
+                        header = CodecUtil.ReadIndexHeader(input);
+                        footer = CodecUtil.ReadFooter(input);
+                        checksum = CodecUtil.RetrieveChecksum(input);
                     }
                     //@SuppressWarnings("unused")
                     catch (Exception cie) when (cie is EOFException || cie is CorruptIndexException)
@@ -277,8 +267,7 @@ namespace Lucene.Net.Replicator.Nrt
                         Message("file " + fileName + " has length=" + BytesToString(length));
                     }
                 }
-                //@SuppressWarnings("unused")
-                    catch (Exception e) when (e is FileNotFoundException || e is NoSuchFileException)
+                catch (FileNotFoundException)
                 {
                     if (VERBOSE_FILES)
                     {
@@ -286,6 +275,11 @@ namespace Lucene.Net.Replicator.Nrt
                     }
                     return null;
                 }
+                finally
+                {
+                    input.Dispose();
+                }
+
 
                 // NOTE: checksum is redundant w/ footer, but we break it out separately because when the bits
                 // cross the wire we need direct access to
@@ -296,6 +290,4 @@ namespace Lucene.Net.Replicator.Nrt
             return result;
         }
     }
-
 }
-    }

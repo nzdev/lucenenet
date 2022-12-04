@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Directory = Lucene.Net.Store.Directory;
 
 namespace Lucene.Net.Replicator.Nrt
 {
@@ -26,6 +27,12 @@ namespace Lucene.Net.Replicator.Nrt
         internal static void PrintStackTrace(this Exception e, TextWriter destination)
         {
             destination.WriteLine(e.StackTrace);
+        }
+
+        internal static double TimeUnitSecondsToNanos(int num)
+        {
+            //TimeUnit.SECONDS.toNanos(1)
+            throw new NotImplementedException();
         }
     }
 }
