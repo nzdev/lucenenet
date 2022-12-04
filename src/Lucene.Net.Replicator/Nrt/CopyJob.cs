@@ -110,7 +110,21 @@ namespace Lucene.Net.Replicator.Nrt
         public interface OnceDone
         {
             /// <exception cref="IOException"/>
-            public void run(CopyJob job);
+            public void Run(CopyJob job);
+        }
+
+        public class OnceDoneAction : OnceDone
+        {
+            private readonly Action<CopyJob> action;
+
+            public OnceDoneAction(Action<CopyJob> action)
+            {
+                this.action = action;
+            }
+            public void Run(CopyJob job)
+            {
+                action(job);
+            }
         }
 
         /// <summary>
@@ -263,7 +277,7 @@ namespace Lucene.Net.Replicator.Nrt
                     {
                         dest.Message("remove partial file " + prevJob.current.tmpName);
                     }
-                    dest.deleter.deleteNewFile(prevJob.current.tmpName);
+                    dest.deleter.DeleteNewFile(prevJob.current.tmpName);
                     prevJob.current = null;
                 }
             }
