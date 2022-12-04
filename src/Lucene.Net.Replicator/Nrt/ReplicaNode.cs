@@ -159,7 +159,7 @@ namespace Lucene.Net.Replicator.Nrt
                     // deleter can get angry because it still
                     // wants to delete this file:
                     long maxPendingGen = -1;
-                    foreach (String fileName in dir.ListAll())
+                    foreach (string fileName in dir.ListAll())
                     {
                         if (fileName.StartsWith(IndexFileNames.PENDING_SEGMENTS))
                         {
@@ -178,15 +178,15 @@ namespace Lucene.Net.Replicator.Nrt
                     if (segmentsFileName == null)
                     {
                         // No index here yet:
-                        infos = new SegmentInfos(Version.LATEST.major);
+                        infos = new SegmentInfos(LuceneVersions.LATEST_MAJOR);
                         Message("top: init: no segments in index");
                     }
                     else
                     {
                         Message("top: init: read existing segments commit " + segmentsFileName);
                         infos = SegmentInfos.ReadCommit(dir, segmentsFileName);
-                        Message("top: init: segments: " + infos.ToString() + " version=" + infos.GetVersion());
-                        ICollection<string> indexFiles = infos.files(false);
+                        Message("top: init: segments: " + infos.ToString() + " version=" + infos.Version);
+                        ICollection<string> indexFiles = infos.Files(false);
 
                         lastCommitFiles.Add(segmentsFileName);
                         lastCommitFiles.AddAll(indexFiles);
@@ -205,7 +205,7 @@ namespace Lucene.Net.Replicator.Nrt
                     Message(
                         "top: done delete unknown files on init: all files=" + Arrays.ToString(dir.ListAll()));
 
-                    String s = infos.GetUserData().get(PRIMARY_GEN_KEY);
+                    string s = infos.GetUserData().get(PRIMARY_GEN_KEY);
                     long myPrimaryGen;
                     if (s == null)
                     {

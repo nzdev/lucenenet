@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text.RegularExpressions;
 
 namespace Lucene.Net.Util
@@ -169,5 +169,13 @@ namespace Lucene.Net.Util
             Enum.TryParse(NUMERIC_VERSION.Replace(parsedMatchVersion, "LUCENE_$1$2", 1), out LuceneVersion result);
             return result;
         }
+    }
+
+    //LUCENENET Only
+    public class LuceneVersions
+    {
+        public const int MIN_SUPPORTED_MAJOR = 4;
+
+        public const int LATEST_MAJOR = 4;
     }
 }
