@@ -349,10 +349,9 @@ namespace Lucene.Net.Replicator.Nrt
                         lastFileMetaData = job.GetCopyState().files;
                         Message(
                             string.Format(
-                                Locale.ROOT,
                                 "top: %d: start: done sync: took %.3fs for %s, opened NRT reader version=%d",
                                 id,
-                                (Time.NanoTime() - initSyncStartNS) / (double)TimeUnit.SECONDS.toNanos(1),
+                                (Time.NanoTime() - initSyncStartNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                                 BytesToString(job.GetTotalBytesCopied()),
                                 job.GetCopyState().version));
 
@@ -385,7 +384,7 @@ namespace Lucene.Net.Replicator.Nrt
                         // Very important to commit what we just sync'd over, because we removed the pre-existing
                         // commit point above if we had to
                         // overwrite any files it referenced:
-                        base.Commit();
+                        Commit();
                     }
 
                     Message("top: done start");
@@ -393,14 +392,14 @@ namespace Lucene.Net.Replicator.Nrt
                 }
                 catch (Exception t)
                 {
-                    if (Objects.toString(t.GetMessage()).StartsWith("replica cannot start") == false)
+                    if (t.Message.StartsWith("replica cannot start") == false)
                     {
                         Message("exc on start:");
-                        t.printStackTrace(TextWriter);
+                        t.PrintStackTrace(TextWriter);
                     }
                     else
                     {
-                        dir.Close();
+                        dir.Dispose();
                     }
                     throw IOUtils.RethrowAlways(t);
                 }
@@ -753,7 +752,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 curNRTCopy = job;
 
-                foreach (string fileName in curNRTCopy.FetFileNamesToCopy())
+                foreach (string fileName in curNRTCopy.GetFileNamesToCopy())
                 {
                     if (Debugging.AssertsEnabled)
                     {
@@ -844,7 +843,7 @@ namespace Lucene.Net.Replicator.Nrt
                 state = "closing";
                 if (curNRTCopy != null)
                 {
-                    curNRTCopy.cancel("closing", null);
+                    curNRTCopy.Cancel("closing", null);
                 }
             }
             finally
@@ -857,7 +856,7 @@ namespace Lucene.Net.Replicator.Nrt
                 Message("top: close mgr");
                 mgr.Close();
 
-                message("top: decRef lastNRTFiles=" + lastNRTFiles);
+                Message("top: decRef lastNRTFiles=" + lastNRTFiles);
                 deleter.DecRef(lastNRTFiles);
                 lastNRTFiles.Clear();
 

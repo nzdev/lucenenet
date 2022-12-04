@@ -312,7 +312,6 @@ namespace Lucene.Net.Replicator.Nrt
 
             dest.Message(
                 String.Format(
-                    Locale.ROOT,
                 "top: cancel after copying %s; exc=%s:\n  files=%s\n  copiedFiles=%s",
                 Node.BytesToString(totBytesCopied),
                 exc,
