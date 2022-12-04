@@ -14,30 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using J2N;
 using Lucene.Net.Index;
+using Lucene.Net.Replicator.Nrt;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
 
-import java.io.PrintStream;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+//import java.io.PrintStream;
+//import java.nio.ByteBuffer;
+//import java.util.ArrayList;
+//import java.util.Arrays;
+//import java.util.Collection;
+//import java.util.Collections;
+//import java.util.HashMap;
+//import java.util.HashSet;
+//import java.util.List;
+//import java.util.Locale;
+//import java.util.Map;
+//import java.util.Objects;
+//import java.util.Set;
+//import java.util.concurrent.ConcurrentHashMap;
+//import java.util.concurrent.ConcurrentMap;
+//import java.util.concurrent.TimeUnit;
+//import java.util.concurrent.atomic.AtomicBoolean;
 
 namespace Lucene.Net.Replicator.Nrt
 {
@@ -84,10 +88,8 @@ namespace Lucene.Net.Replicator.Nrt
         /// <param name="searcherFactory"></param>
         /// <param name="printStream"></param>
         /// <exception cref="IOException"/>
-        public ReplicaNode(
-            int id, Directory dir, SearcherFactory searcherFactory, PrintStream printStream)
+        public ReplicaNode(int id, Directory dir, SearcherFactory searcherFactory, PrintStream printStream) : base(id, dir, searcherFactory, printStream)
         {
-            super(id, dir, searcherFactory, printStream);
 
             if (dir.getPendingDeletions().isEmpty() == false)
             {
@@ -95,7 +97,7 @@ namespace Lucene.Net.Replicator.Nrt
                     "Directory " + dir + " still has pending deleted files; cannot initialize IndexWriter");
             }
 
-            boolean success = false;
+            bool success = false;
 
             try
             {
@@ -119,7 +121,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 if (success == false)
                 {
-                    IOUtils.closeWhileHandlingException(this);
+                    IOUtils.CloseWhileHandlingException(this);
                 }
             }
         }
@@ -142,7 +144,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
 
                 // Figure out what state our local index is in now:
-                String segmentsFileName = SegmentInfos.getLastCommitSegmentsFileName(dir);
+                String segmentsFileName = SegmentInfos.GetLastCommitSegmentsFileName(dir);
 
                 // Also look for any pending_segments_N, in case we crashed mid-commit.  We must "inflate" our
                 // infos gen to at least this, since
@@ -150,7 +152,7 @@ namespace Lucene.Net.Replicator.Nrt
                 // deleter can get angry because it still
                 // wants to delete this file:
                 long maxPendingGen = -1;
-                for (String fileName : dir.listAll())
+                foreach (String fileName in dir.listAll())
                 {
                     if (fileName.startsWith(IndexFileNames.PENDING_SEGMENTS))
                     {
@@ -175,8 +177,8 @@ namespace Lucene.Net.Replicator.Nrt
                 else
                 {
                     message("top: init: read existing segments commit " + segmentsFileName);
-                    infos = SegmentInfos.readCommit(dir, segmentsFileName);
-                    message("top: init: segments: " + infos.toString() + " version=" + infos.getVersion());
+                    infos = SegmentInfos.ReadCommit(dir, segmentsFileName);
+                    message("top: init: segments: " + infos.ToString() + " version=" + infos.FetVersion());
                     Collection<String> indexFiles = infos.files(false);
 
                     lastCommitFiles.add(segmentsFileName);
@@ -192,15 +194,15 @@ namespace Lucene.Net.Replicator.Nrt
                 }
 
                 message("top: delete unknown files on init: all files=" + Arrays.toString(dir.listAll()));
-                deleter.deleteUnknownFiles(segmentsFileName);
+                deleter.DeleteUnknownFiles(segmentsFileName);
                 message(
                     "top: done delete unknown files on init: all files=" + Arrays.toString(dir.listAll()));
 
-                String s = infos.getUserData().get(PRIMARY_GEN_KEY);
+                String s = infos.GetUserData().get(PRIMARY_GEN_KEY);
                 long myPrimaryGen;
                 if (s == null)
                 {
-                    assert infos.size() == 0;
+                    assert infos.Size() == 0;
                     myPrimaryGen = -1;
                 }
                 else
@@ -222,7 +224,7 @@ namespace Lucene.Net.Replicator.Nrt
                     // "forked"), and we can't overwrite open
                     // files on Windows:
 
-                    final long initSyncStartNS = Time.NanoTime();
+                    readonly long initSyncStartNS = Time.NanoTime();
 
                     message(
                         "top: init: primary changed while we were down myPrimaryGen="
@@ -242,10 +244,10 @@ namespace Lucene.Net.Replicator.Nrt
                     message("top: now delete starting commit point " + segmentsFileName);
 
                     // If this throws exc (e.g. due to virus checker), we cannot start this replica:
-                    assert deleter.getRefCount(segmentsFileName) == 1;
+                    assert deleter.GetRefCount(segmentsFileName) == 1;
                     deleter.decRef(Collections.singleton(segmentsFileName));
 
-                    if (dir.getPendingDeletions().isEmpty() == false)
+                    if (dir.GetPendingDeletions().isEmpty() == false)
                     {
                         // If e.g. virus checker blocks us from deleting, we absolutely cannot start this node
                         // else there is a definite window during
@@ -271,7 +273,7 @@ namespace Lucene.Net.Replicator.Nrt
                                 null);
                         job.start();
 
-                        message("top: init: sync sis.version=" + job.getCopyState().version);
+                        message("top: init: sync sis.version=" + job.GetCopyState().version);
 
                         // Force this copy job to finish while we wait, now.  Note that this can be very time
                         // consuming!
@@ -279,15 +281,15 @@ namespace Lucene.Net.Replicator.Nrt
                         // copy if a flush happens
                         try
                         {
-                            job.runBlocking();
-                            job.finish();
+                            job.RunBlocking();
+                            job.Finish();
 
                             // Success!
                             break;
                         }
                         catch (IOException ioe)
                         {
-                            job.cancel("startup failed", ioe);
+                            job.Cancel("startup failed", ioe);
                             if (ioe.getMessage().contains("checksum mismatch after file copy"))
                             {
                                 // OK-ish
@@ -300,20 +302,20 @@ namespace Lucene.Net.Replicator.Nrt
                         }
                     }
 
-                    lastPrimaryGen = job.getCopyState().primaryGen;
+                    lastPrimaryGen = job.GetCopyState().primaryGen;
 
                     SegmentInfos syncInfos =
-                        SegmentInfos.readCommit(
-                            dir, toIndexInput(job.getCopyState().infosBytes), job.getCopyState().gen);
+                        SegmentInfos.ReadCommit(
+                            dir, toIndexInput(job.GetCopyState().infosBytes), job.GetCopyState().gen);
 
                     // Must always commit to a larger generation than what's currently in the index:
-                    syncInfos.updateGeneration(infos);
+                    syncInfos.UpdateGeneration(infos);
                     infos = syncInfos;
 
-                    assert infos.getVersion() == job.getCopyState().version;
+                    assert infos.GetVersion() == job.GetCopyState().version;
                     message("  version=" + infos.getVersion() + " segments=" + infos.toString());
-                    message("top: init: incRef nrtFiles=" + job.getFileNames());
-                    deleter.incRef(job.getFileNames());
+                    message("top: init: incRef nrtFiles=" + job.GetFileNames());
+                    deleter.incRef(job.GetFileNames());
                     message("top: init: decRef lastNRTFiles=" + lastNRTFiles);
                     deleter.decRef(lastNRTFiles);
 
@@ -368,7 +370,7 @@ namespace Lucene.Net.Replicator.Nrt
             }
             catch (Exception t)
             {
-                if (Objects.toString(t.getMessage()).startsWith("replica cannot start") == false)
+                if (Objects.toString(t.GetMessage()).startsWith("replica cannot start") == false)
                 {
                     message("exc on start:");
                     t.printStackTrace(printStream);
@@ -384,7 +386,7 @@ namespace Lucene.Net.Replicator.Nrt
         readonly object commitLock = new object();
 
         /// <exception cref="IOException"/>
-        public override void commit()
+        public override void Commit()
         {
 
             synchronized(commitLock) {
@@ -412,23 +414,23 @@ namespace Lucene.Net.Replicator.Nrt
                 Map<String, String> commitData = new HashMap<>();
                 commitData.put(PRIMARY_GEN_KEY, Long.toString(lastPrimaryGen));
                 commitData.put(VERSION_KEY, Long.toString(getCurrentSearchingVersion()));
-                infos.setUserData(commitData, false);
+                infos.SetUserData(commitData, false);
 
                 // write and fsync a new segments_N
-                infos.commit(dir);
+                infos.Commit(dir);
 
                 // Notify current infos (which may have changed while we were doing dir.sync above) what
                 // generation we are up to; this way future
                 // commits are guaranteed to go to the next (unwritten) generations:
-                ((SegmentInfosSearcherManager)mgr).getCurrentInfos().updateGeneration(infos);
-                String segmentsFileName = infos.getSegmentsFileName();
+                ((SegmentInfosSearcherManager)mgr).GetCurrentInfos().updateGeneration(infos);
+                String segmentsFileName = infos.GetSegmentsFileName();
                 message(
                     "top: commit wrote segments file "
                         + segmentsFileName
                         + " version="
-                        + infos.getVersion()
+                        + infos.GetVersion()
                         + " sis="
-                        + infos.toString()
+                        + infos.ToString()
                         + " commitData="
                         + commitData);
                 deleter.incRef(Collections.singletonList(segmentsFileName));
@@ -444,11 +446,11 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         protected void finishNRTCopy(CopyJob job, long startNS)
         {
-            CopyState copyState = job.getCopyState();
+            CopyState copyState = job.GetCopyState();
             message(
                 "top: finishNRTCopy: version="
                     + copyState.version
-                    + (job.getFailed() ? " FAILED" : "")
+                    + (job.GetFailed() ? " FAILED" : "")
                     + " job="
                     + job);
 
@@ -458,7 +460,7 @@ namespace Lucene.Net.Replicator.Nrt
 
             synchronized(this)
         {
-                if ("syncing".equals(state))
+                if ("syncing".Equals(state))
                 {
                     state = "idle";
                 }
@@ -484,13 +486,13 @@ namespace Lucene.Net.Replicator.Nrt
 
                 // Turn byte[] back to SegmentInfos:
                 SegmentInfos infos =
-                    SegmentInfos.readCommit(dir, toIndexInput(copyState.infosBytes), copyState.gen);
+                    SegmentInfos.ReadCommit(dir, toIndexInput(copyState.infosBytes), copyState.gen);
                 assert infos.getVersion() == copyState.version;
 
-                message("  version=" + infos.getVersion() + " segments=" + infos.toString());
+                message("  version=" + infos.GetVersion() + " segments=" + infos.ToString());
 
                 // Cutover to new searcher:
-                ((SegmentInfosSearcherManager)mgr).setCurrentInfos(infos);
+                ((SegmentInfosSearcherManager)mgr).SetCurrentInfos(infos);
 
                 // Must first incRef new NRT files, then decRef old ones, to make sure we don't remove an NRT
                 // file that's in common to both:
@@ -517,9 +519,9 @@ namespace Lucene.Net.Replicator.Nrt
                 if (copyState.completedMergeFiles.isEmpty() == false)
                 {
                     message("now remove-if-not-ref'd completed merge files: " + copyState.completedMergeFiles);
-                    for (String fileName : copyState.completedMergeFiles)
+                    foreach (string fileName in copyState.completedMergeFiles)
                     {
-                        if (pendingMergeFiles.contains(fileName))
+                        if (pendingMergeFiles.Contains(fileName))
                         {
                             pendingMergeFiles.remove(fileName);
                             deleter.deleteIfNoRef(fileName);
@@ -531,7 +533,7 @@ namespace Lucene.Net.Replicator.Nrt
             }
 
             int markerCount;
-            IndexSearcher s = mgr.acquire();
+            IndexSearcher s = mgr.Acquire();
             try
             {
                 markerCount = s.count(new TermQuery(new Term("marker", "marker")));
@@ -567,9 +569,9 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         protected abstract CopyJob newCopyJob(
             String reason,
-            Map<String, FileMetaData> files,
-            Map<String, FileMetaData> prevFiles,
-            boolean highPriority,
+            IDictionary<String, FileMetaData> files,
+            IDictionary<String, FileMetaData> prevFiles,
+            bool highPriority,
             CopyJob.OnceDone onceDone);
 
         /** Runs this job async'd */
@@ -588,7 +590,7 @@ namespace Lucene.Net.Replicator.Nrt
          * done.
          */
         /// <exception cref="IOException"/>
-        public synchronized CopyJob newNRTPoint(long newPrimaryGen, long version)
+        public synchronized CopyJob NewNRTPoint(long newPrimaryGen, long version)
         {
 
             if (isClosed())
@@ -652,8 +654,7 @@ namespace Lucene.Net.Replicator.Nrt
                         lastFileMetaData,
                         true,
                         new CopyJob.OnceDone() {
-                @Override
-                              public void run(CopyJob job)
+                              public override void run(CopyJob job)
                 {
                     try
                     {
@@ -740,8 +741,7 @@ return curNRTCopy;
     return curNRTCopy != null;
 }
 
-@Override
-  public boolean isClosed()
+public override bool isClosed()
 {
     return "closed".equals(state)
         || "closing".equals(state)
@@ -749,12 +749,12 @@ return curNRTCopy;
         || "crashed".equals(state);
 }
 
-@Override
-  public void close() throws IOException
+/// <exception cref="IOException"/>
+public override void Close()
 {
     message("top: now close");
 
-    synchronized (this) {
+    synchronized(this) {
         state = "closing";
         if (curNRTCopy != null)
         {
@@ -762,7 +762,7 @@ return curNRTCopy;
         }
     }
 
-    synchronized (this) {
+    synchronized(this) {
         message("top: close mgr");
         mgr.close();
 
@@ -928,7 +928,7 @@ return job;
   }
 
         /// <exception cref="IOException"/>
-  public IndexOutput createTempOutput(String prefix, String suffix, IOContext ioContext)
+  public IndexOutput CreateTempOutput(String prefix, String suffix, IOContext ioContext)
 {
     return dir.createTempOutput(prefix, suffix, IOContext.DEFAULT);
 }
@@ -938,31 +938,31 @@ return job;
  * and returns the subset of the incoming files that need copying
  */
 /// <exception cref="IOException"/>
-public List<Map.Entry<String, FileMetaData>> getFilesToCopy(Map<String, FileMetaData> files)
+public List<KeyValuePair<String, FileMetaData>> GetFilesToCopy(Map<String, FileMetaData> files)
 {
 
-    List<Map.Entry<String, FileMetaData>> toCopy = new ArrayList<>();
-    for (Map.Entry<String, FileMetaData> ent : files.entrySet())
-{
-    String fileName = ent.getKey();
-    FileMetaData fileMetaData = ent.getValue();
-    if (fileIsIdentical(fileName, fileMetaData) == false)
+    List<KeyValuePair<String, FileMetaData>> toCopy = new ArrayList<>();
+    foreach (KeyValuePair<String, FileMetaData> ent in files.entrySet())
     {
-        toCopy.add(ent);
+        String fileName = ent.getKey();
+        FileMetaData fileMetaData = ent.getValue();
+        if (fileIsIdentical(fileName, fileMetaData) == false)
+        {
+            toCopy.add(ent);
+        }
     }
+
+    return toCopy;
 }
 
-return toCopy;
-  }
-
-  /**
-   * Carefully determine if the file on the primary, identified by its {@code String fileName} along
-   * with the {@link FileMetaData} "summarizing" its contents, is precisely the same file that we
-   * have locally. If the file does not exist locally, or if its header (includes the segment id),
-   * length, footer (including checksum) differ, then this returns false, else true.
-   */
-        /// <exception cref="IOException"/>
-  private boolean fileIsIdentical(String fileName, FileMetaData srcMetaData)
+/**
+ * Carefully determine if the file on the primary, identified by its {@code String fileName} along
+ * with the {@link FileMetaData} "summarizing" its contents, is precisely the same file that we
+ * have locally. If the file does not exist locally, or if its header (includes the segment id),
+ * length, footer (including checksum) differ, then this returns false, else true.
+ */
+/// <exception cref="IOException"/>
+private bool fileIsIdentical(String fileName, FileMetaData srcMetaData)
 {
 
     FileMetaData destMetaData = readLocalFileMetaData(fileName);
@@ -988,10 +988,10 @@ return toCopy;
     }
 }
 
-private ConcurrentMap<String, Boolean> copying = new ConcurrentHashMap<>();
+private ConcurrentDictionary<string, bool> copying = new ConcurrentDictionary<string, bool>();
 
 // Used only to catch bugs, ensuring a given file name is only ever being copied bye one job:
-public void startCopyFile(String name)
+public void StartCopyFile(String name)
 {
     if (copying.putIfAbsent(name, Boolean.TRUE) != null)
     {
@@ -999,7 +999,7 @@ public void startCopyFile(String name)
     }
 }
 
-public void finishCopyFile(String name)
+public void FinishCopyFile(String name)
 {
     if (copying.remove(name) == null)
     {

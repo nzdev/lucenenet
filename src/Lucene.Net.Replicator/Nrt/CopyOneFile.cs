@@ -16,157 +16,155 @@
  */
 
 using J2N;
+using Lucene.Net.Codecs;
+using Lucene.Net.Store;
 using System;
+using System.IO;
 
-namespace Lucene.Net.Replicator.Nrt;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Locale;
-import java.util.concurrent.TimeUnit;
-import org.apache.lucene.codecs.CodecUtil;
-import org.apache.lucene.store.DataInput;
-import org.apache.lucene.store.IOContext;
-import org.apache.lucene.store.IndexOutput;
-
-/** Copies one file from an incoming DataInput to a dest filename in a local Directory */
-public class CopyOneFile : IDisposable
+namespace Lucene.Net.Replicator.Nrt
 {
-  private final DataInput input;
-private final IndexOutput output;
-private final ReplicaNode dest;
-public final String name;
-public final String tmpName;
-public final FileMetaData metaData;
-public final long bytesToCopy;
-private final long copyStartNS;
-private final byte[] buffer;
 
-private long bytesCopied;
 
-public CopyOneFile(
-    DataInput input, ReplicaNode dest, String name, FileMetaData metaData, byte[] buffer)
-      throws IOException
-{
-    this.input = input;
-    this.name = name;
-    this.dest = dest;
-    this.buffer = buffer;
-    // TODO: pass correct IOCtx, e.g. seg total size
-    output = dest.createTempOutput(name, "copy", IOContext.DEFAULT);
-    tmpName = out.getName();
+    /** Copies one file from an incoming DataInput to a dest filename in a local Directory */
+    public class CopyOneFile : IDisposable
+    {
+        private readonly DataInput input;
+        private readonly IndexOutput output;
+        private readonly ReplicaNode dest;
+        public readonly String name;
+        public readonly String tmpName;
+        public readonly FileMetaData metaData;
+        public readonly long bytesToCopy;
+        private readonly long copyStartNS;
+        private readonly byte[] buffer;
 
-    // last 8 bytes are checksum, which we write ourselves after copying all bytes and confirming
-    // checksum:
-    bytesToCopy = metaData.length - Long.BYTES;
+        private long bytesCopied;
 
-    if (Node.VERBOSE_FILES) {
-        dest.message(
-            "file "
-                + name
-                + ": start copying to tmp file "
-                + tmpName
-                + " length="
-                + (8 + bytesToCopy));
-    }
-
-    copyStartNS = Time.NanoTime();
-    this.metaData = metaData;
-    dest.startCopyFile(name);
-}
-
-/** Transfers this file copy to another input, continuing where the first one left off */
-public CopyOneFile(CopyOneFile other, DataInput in)
-{
-    this.in = in;
-    this.dest = other.dest;
-    this.name = other.name;
-    this.out = other.out;
-    this.tmpName = other.tmpName;
-    this.metaData = other.metaData;
-    this.bytesCopied = other.bytesCopied;
-    this.bytesToCopy = other.bytesToCopy;
-    this.copyStartNS = other.copyStartNS;
-    this.buffer = other.buffer;
-}
-
-@Override
-  public void close() throws IOException
-{
-    out.close();
-    dest.finishCopyFile(name);
-}
-
-/** Copy another chunk of bytes, returning true once the copy is done */
-public boolean visit() throws IOException
-{
-    // Copy up to 640 KB per visit:
-    for (int i = 0; i < 10; i++) {
-        long bytesLeft = bytesToCopy - bytesCopied;
-        if (bytesLeft == 0)
+        /// <exception cref="IOException"/>
+        public CopyOneFile(DataInput input, ReplicaNode dest, String name, FileMetaData metaData, byte[] buffer)
         {
-            long checksum = out.getChecksum();
-            if (checksum != metaData.checksum)
-            {
-                // Bits flipped during copy!
-                dest.message(
-                    "file "
-                        + tmpName
-                        + ": checksum mismatch after copy (bits flipped during network copy?) after-copy checksum="
-                        + checksum
-                        + " vs expected="
-                        + metaData.checksum
-                        + "; cancel job");
-                throw new IOException("file " + name + ": checksum mismatch after file copy");
-            }
+            this.input = input;
+            this.name = name;
+            this.dest = dest;
+            this.buffer = buffer;
+            // TODO: pass correct IOCtx, e.g. seg total size
+            output = dest.CreateTempOutput(name, "copy", IOContext.DEFAULT);
+            tmpName = output.GetName();
 
-            // Paranoia: make sure the primary node is not smoking crack, by somehow sending us an
-            // already corrupted file whose checksum (in its
-            // footer) disagrees with reality:
-            long actualChecksumIn = CodecUtil.readBELong(in);
-            if (actualChecksumIn != checksum)
-            {
-                dest.message(
-                    "file "
-                        + tmpName
-                        + ": checksum claimed by primary disagrees with the file's footer: claimed checksum="
-                        + checksum
-                        + " vs actual="
-                        + actualChecksumIn);
-                throw new IOException("file " + name + ": checksum mismatch after file copy");
-            }
-            CodecUtil.writeBELong(out, checksum);
-            bytesCopied += Long.BYTES;
-            close();
+            // last 8 bytes are checksum, which we write ourselves after copying all bytes and confirming
+            // checksum:
+            bytesToCopy = metaData.length - Long.BYTES;
 
             if (Node.VERBOSE_FILES)
             {
                 dest.message(
-                    String.format(
-                        Locale.ROOT,
-                        "file %s: done copying [%s, %.3fms]",
-                        name,
-                        Node.bytesToString(metaData.length),
-                        (Time.NanoTime() - copyStartNS) / (double)TimeUnit.MILLISECONDS.toNanos(1)));
+                    "file "
+                        + name
+                        + ": start copying to tmp file "
+                        + tmpName
+                        + " length="
+                        + (8 + bytesToCopy));
             }
 
-            return true;
+            copyStartNS = Time.NanoTime();
+            this.metaData = metaData;
+            dest.StartCopyFile(name);
         }
 
-        int toCopy = (int)Math.min(bytesLeft, buffer.length);
-      in.readBytes(buffer, 0, toCopy);
-      out.writeBytes(buffer, 0, toCopy);
+        /** Transfers this file copy to another input, continuing where the first one left off */
+        public CopyOneFile(CopyOneFile other, DataInput input)
+        {
+            this.input = input;
+            this.dest = other.dest;
+            this.name = other.name;
+            this.output = other.output;
+            this.tmpName = other.tmpName;
+            this.metaData = other.metaData;
+            this.bytesCopied = other.bytesCopied;
+            this.bytesToCopy = other.bytesToCopy;
+            this.copyStartNS = other.copyStartNS;
+            this.buffer = other.buffer;
+        }
+        /// <exception cref="IOException"/>
+        public override void Close()
+        {
+            output.Close();
+            dest.FinishCopyFile(name);
+        }
 
-        // TODO: rsync will fsync a range of the file; maybe we should do that here for large files in
-        // case we crash/killed
-        bytesCopied += toCopy;
+        /** Copy another chunk of bytes, returning true once the copy is done */
+        /// <exception cref="IOException"/>
+        public bool Visit()
+        {
+            // Copy up to 640 KB per visit:
+            for (int i = 0; i < 10; i++)
+            {
+                long bytesLeft = bytesToCopy - bytesCopied;
+                if (bytesLeft == 0)
+                {
+                    long checksum = output.GetChecksum();
+                    if (checksum != metaData.checksum)
+                    {
+                        // Bits flipped during copy!
+                        dest.message(
+                            "file "
+                                + tmpName
+                                + ": checksum mismatch after copy (bits flipped during network copy?) after-copy checksum="
+                                + checksum
+                                + " vs expected="
+                                + metaData.checksum
+                                + "; cancel job");
+                        throw new IOException("file " + name + ": checksum mismatch after file copy");
+                    }
+
+                    // Paranoia: make sure the primary node is not smoking crack, by somehow sending us an
+                    // already corrupted file whose checksum (in its
+                    // footer) disagrees with reality:
+                    long actualChecksumIn = CodecUtil.readBELong(in);
+                    if (actualChecksumIn != checksum)
+                    {
+                        dest.message(
+                            "file "
+                                + tmpName
+                                + ": checksum claimed by primary disagrees with the file's footer: claimed checksum="
+                                + checksum
+                                + " vs actual="
+                                + actualChecksumIn);
+                        throw new IOException("file " + name + ": checksum mismatch after file copy");
+                    }
+                    CodecUtil.writeBELong(out, checksum);
+                    bytesCopied += Long.BYTES;
+                    close();
+
+                    if (Node.VERBOSE_FILES)
+                    {
+                        dest.message(
+                            String.Format(
+                                Locale.ROOT,
+                                "file %s: done copying [%s, %.3fms]",
+                                name,
+                                Node.bytesToString(metaData.length),
+                                (Time.NanoTime() - copyStartNS) / (double)TimeUnit.MILLISECONDS.toNanos(1)));
+                    }
+
+                    return true;
+                }
+
+                int toCopy = (int)Math.Min(bytesLeft, buffer.Length);
+                input.ReadBytes(buffer, 0, toCopy);
+                output.WriteBytes(buffer, 0, toCopy);
+
+                // TODO: rsync will fsync a range of the file; maybe we should do that here for large files in
+                // case we crash/killed
+                bytesCopied += toCopy;
+            }
+
+            return false;
+        }
+
+        public long GetBytesCopied()
+        {
+            return bytesCopied;
+        }
     }
-
-    return false;
-}
-
-public long getBytesCopied()
-{
-    return bytesCopied;
-}
 }

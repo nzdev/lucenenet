@@ -86,7 +86,7 @@ namespace Lucene.Net.Replicator.Nrt
         // public static final long globalStartNS;
 
         // For debugging:
-        volatile String state = "idle";
+        protected volatile String state = "idle";
 
         /** File metadata for last sync that succeeded; we use this as a cache */
         protected volatile Map<String, FileMetaData> lastFileMetaData;
