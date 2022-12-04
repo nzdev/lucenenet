@@ -29,14 +29,6 @@ using System.IO;
 using Lucene.Net.Diagnostics;
 using Lucene.Net.Index;
 
-//import java.io.IOException;
-//import java.util.Iterator;
-//import java.util.List;
-//import java.util.Locale;
-//import java.util.Set;
-//import org.apache.lucene.index.CorruptIndexException;
-//import org.apache.lucene.util.IOUtils;
-
 namespace Lucene.Net.Replicator.Nrt
 {
     /**
@@ -108,7 +100,7 @@ namespace Lucene.Net.Replicator.Nrt
             catch (Exception t)
             {
                 Cancel("exc during init", t);
-                throw new CorruptIndexException("exception while checking local files", "n/a", t);
+                throw new CorruptIndexException("exception while checking local files" + " " + "n/a", t);
             }
         }
 

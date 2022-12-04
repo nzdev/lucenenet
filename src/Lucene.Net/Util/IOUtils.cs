@@ -201,7 +201,7 @@ namespace Lucene.Net.Util
         /// Disposes all given <see cref="IDisposable"/>s, suppressing all thrown exceptions. </summary>
         /// <seealso cref="DisposeWhileHandlingException(Exception, IDisposable[])"/>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DisposeWhileHandlingException(Exception priorException, IEnumerable<IDisposable> objects) 
+        public static void DisposeWhileHandlingException(Exception priorException, IEnumerable<IDisposable> objects)
         {
             Exception th = null;
 
@@ -241,7 +241,7 @@ namespace Lucene.Net.Util
         /// <param name="objects">
         ///          Objects to call <see cref="IDisposable.Dispose()"/> on </param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Dispose(params IDisposable[] objects) 
+        public static void Dispose(params IDisposable[] objects)
         {
             Exception th = null;
 
@@ -298,7 +298,7 @@ namespace Lucene.Net.Util
         /// <param name="objects">
         ///          Objects to call <see cref="IDisposable.Dispose()"/> on </param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DisposeWhileHandlingException(params IDisposable[] objects) 
+        public static void DisposeWhileHandlingException(params IDisposable[] objects)
         {
             foreach (var o in objects)
             {
@@ -512,6 +512,54 @@ namespace Lucene.Net.Util
                 throw RuntimeException.Create(th);
             }
         }
+
+        /// This utility method takes a previously caught (non-null) {@code Throwable} and rethrows either
+        /// the original argument if it was a subclass of the {@code IOException} or an {@code
+        /// RuntimeException} with the cause set to the argument.
+        ///
+        /// <p>This method <strong>never returns any value</strong>, even though it declares a return value
+        /// of type {@link Error}. The return value declaration is very useful to let the compiler know
+        /// that the code path following the invocation of this method is unreachable. So in most cases the
+        /// invocation of this method will be guarded by an {@code if} and used together with a {@code
+        /// throw} statement, as in:
+        ///
+        /// <pre>{@code
+        /// if (t != null) throw IOUtils.rethrowAlways(t)
+        /// }</pre>
+        ///
+        /// @param th The throwable to rethrow, <strong>must not be null</strong>.
+        /// @return This method always results in an exception, it never returns any value. See method
+        ///     documentation for details and usage example.
+        /// @throws IOException if the argument was an instance of IOException
+        /// @throws RuntimeException with the {@link RuntimeException#getCause()} set to the argument, if
+        ///     it was not an instance of IOException.
+        /// <exception cref="IOException"/>
+        /// <exception cref="RuntimeException"/>
+        internal static Error RethrowAlways(Exception th)
+        {
+            if (th == null)
+            {
+                throw AssertionError.Create("rethrow argument must not be null.");
+            }
+
+            if (th is IOException)
+            {
+                throw (IOException)th;
+            }
+
+            if (th is RuntimeException)
+            {
+                throw (RuntimeException)th;
+            }
+
+            if (th is Error)
+            {
+                throw (Error)th;
+            }
+
+            throw new RuntimeException(th);
+        }
+
 
         // LUCENENET specific: Fsync is pointless in .NET, since we are 
         // calling FileStream.Flush(true) before the stream is disposed
