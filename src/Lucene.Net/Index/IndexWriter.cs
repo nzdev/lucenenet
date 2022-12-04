@@ -6103,28 +6103,6 @@ namespace Lucene.Net.Index
             if (Debugging.AssertsEnabled) Debugging.Assert(TestPoint("finishStartCommit"));
         }
 
-        /**
-  * If {@link DirectoryReader#open(IndexWriter)} has been called (ie, this writer is in near
-  * real-time mode), then after a merge completes, this class can be invoked to warm the reader on
-  * the newly merged segment, before the merge commits. This is not required for near real-time
-  * search, but will reduce search latency on opening a new near real-time reader after a merge
-  * completes.
-  *
-  * @lucene.experimental
-  *     <p><b>NOTE</b>: {@link #warm(LeafReader)} is called before any deletes have been carried
-  *     over to the merged segment.
-  */
-        // @FunctionalInterface
-        public interface IndexReaderWarmer
-        {
-            /**
-             * Invoked on the {@link LeafReader} for the newly merged segment, before that segment is made
-             * visible to near-real-time readers.
-             */
-            /// <exception cref="IOException"/>
-            void Warm(LeafReader reader);
-        }
-
         /// <summary>
         /// Returns <c>true</c> iff the index in the named directory is
         /// currently locked. </summary>

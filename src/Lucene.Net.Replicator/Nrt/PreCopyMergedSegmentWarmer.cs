@@ -26,8 +26,11 @@
 //import org.apache.lucene.index.SegmentReader;
 using J2N;
 using J2N.Collections.Generic;
+using Lucene.Net.Diagnostics;
 using Lucene.Net.Index;
 using System.Collections;
+using System.Collections.Generic;
+using static Lucene.Net.Index.IndexWriter;
 
 namespace Lucene.Net.Replicator.Nrt
 {
@@ -54,28 +57,30 @@ namespace Lucene.Net.Replicator.Nrt
         }
 
         /// <exception cref="IOException"/>
-        public override void Warm(LeafReader reader)
+        public override void Warm(AtomicReader reader)
         {
             long startNS = Time.NanoTime();
-            readonly SegmentCommitInfo info = ((SegmentReader)reader).getSegmentInfo();
+            SegmentCommitInfo info = ((SegmentReader)reader).SegmentInfo;
             // System.out.println("TEST: warm merged segment files " + info);
-            IDictionary<string, FileMetaData> filesMetaData = new Dictionary<string, FileMetaData>();
-            for (String fileName : info.files())
+            IDictionary<string, FileMetaData> filesMetaData = new System.Collections.Generic.Dictionary<string, FileMetaData>();
+            foreach (string fileName in info.GetFiles())
             {
-                FileMetaData metaData = primary.readLocalFileMetaData(fileName);
-                assert metaData != null;
-                assert filesMetaData.containsKey(fileName) == false;
-                filesMetaData.put(fileName, metaData);
+                FileMetaData metaData = primary.ReadLocalFileMetaData(fileName);
+                if (Debugging.AssertsEnabled)
+                {
+                    Debugging.Assert(metaData != null);
+                    Debugging.Assert(filesMetaData.ContainsKey(fileName) == false);
+                }
+                filesMetaData.Add(fileName, metaData);
             }
 
             primary.PreCopyMergedSegmentFiles(info, filesMetaData);
             primary.Message(
                 string.Format(
-                    Locale.ROOT,
                     "top: done warm merge " + info + ": took %.3f sec, %.1f MB",
-                    (Time.NanoTime() - startNS) / (double)TimeUnit.SECONDS.toNanos(1),
+                    (Time.NanoTime() - startNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                     info.sizeInBytes() / 1024. / 1024.));
-            primary.finishedMergedFiles.addAll(filesMetaData.keySet());
+            primary.finishedMergedFiles.addAll(filesMetaData.Keys);
         }
     }
 }
