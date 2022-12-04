@@ -19,7 +19,6 @@
 using System;
 using System.IO;
 using System.Threading;
-using DotLiquid.Exceptions;
 using Lucene.Net.Documents;
 using Lucene.Net.Support.Threading;
 //import java.util.concurrent.atomic.AtomicBoolean;
@@ -62,7 +61,7 @@ namespace Lucene.Net.Replicator.Nrt
             int id,
             int tcpPort,
             Thread pumper,
-            boolean isPrimary,
+            bool isPrimary,
             long initCommitVersion,
             long initInfosVersion,
             AtomicBoolean nodeIsClosing)
@@ -132,7 +131,8 @@ namespace Lucene.Net.Replicator.Nrt
                 c.output.writeByte(SimplePrimaryNode.CMD_COMMIT);
                 c.flush();
                 c.s.shutdownOutput();
-                if (c.in.readByte() != 1) {
+                if (c.input.readByte() != 1)
+                {
                     throw new RuntimeException("commit failed");
                 }
                 return true;
@@ -166,17 +166,26 @@ namespace Lucene.Net.Replicator.Nrt
         /// version if there were no changes.
         /// </summary>
         /// <exception cref="IOException"/>
-        public synchronized long flush(int atLeastMarkerCount)
+        public long flush(int atLeastMarkerCount)
         {
-            assert isPrimary;
-            using (Connection c = new Connection(tcpPort))
+            UninterruptableMonitor.Enter(this);
+            try
             {
-                c.output.writeByte(SimplePrimaryNode.CMD_FLUSH);
-                c.output.writeVInt(atLeastMarkerCount);
-                c.flush();
-                c.s.shutdownOutput();
-                return c.input.readLong();
+                assert isPrimary;
+                using (Connection c = new Connection(tcpPort))
+                {
+                    c.output.writeByte(SimplePrimaryNode.CMD_FLUSH);
+                    c.output.writeVInt(atLeastMarkerCount);
+                    c.flush();
+                    c.s.shutdownOutput();
+                    return c.input.readLong();
+                }
             }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+
         }
 
         public void Dispose()
@@ -184,163 +193,177 @@ namespace Lucene.Net.Replicator.Nrt
             shutdown();
         }
 
-        public synchronized boolean shutdown()
+        //TODO: REDO
+        public bool shutdown()
         {
-            lock.lock ()
-                    ;
+            UninterruptableMonitor.Enter(this);
             try
             {
-                // System.out.println("PARENT: now shutdown node=" + id + " isOpen=" + isOpen);
-                if (isOpen)
+                try
                 {
-                    // Ask the child process to shutdown gracefully:
-                    isOpen = false;
-                    // System.out.println("PARENT: send CMD_CLOSE to node=" + id);
-                    using (Connection c = new Connection(tcpPort))
+                    // System.out.println("PARENT: now shutdown node=" + id + " isOpen=" + isOpen);
+                    if (isOpen)
                     {
-                        c.output.writeByte(SimplePrimaryNode.CMD_CLOSE);
-                        c.flush();
-                        if (c.input.readByte() != 1)
+                        // Ask the child process to shutdown gracefully:
+                        isOpen = false;
+                        // System.out.println("PARENT: send CMD_CLOSE to node=" + id);
+                        using (Connection c = new Connection(tcpPort))
                         {
-                            throw new RuntimeException("shutdown failed");
-                        }
-                    } catch (Throwable t)
-            {
-                System.out.println("top: shutdown failed; ignoring");
-                t.printStackTrace(System.out);
-            }
-            try
-            {
-                p.waitFor();
-                pumper.join();
-            }
-            catch (InterruptedException ie)
-            {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(ie);
-            }
-        }
+                            c.output.writeByte(SimplePrimaryNode.CMD_CLOSE);
+                            c.flush();
+                            if (c.input.readByte() != 1)
+                            {
+                                throw new RuntimeException("shutdown failed");
+                            }
+                        } catch (Throwable t)
+                {
+                    System.out.println("top: shutdown failed; ignoring");
+                    t.printStackTrace(System.out);
+                }
+                try
+                {
+                    p.waitFor();
+                    pumper.join();
+                }
+                catch (InterruptedException ie)
+                {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(ie);
+                }
 
                 return true;
             }
+
+
             finally
             {
-                lock.unlock();
-}
+                UninterruptableMonitor.Exit(this);
+            }
         }
 
         /// <exception cref="IOException"/>
         public void newNRTPoint(long version, long primaryGen, int primaryTCPPort)
-{
-    try (Connection c = new Connection(tcpPort)) {
-    c.out.writeByte(SimpleReplicaNode.CMD_NEW_NRT_POINT);
-    c.out.writeVLong(version);
-    c.out.writeVLong(primaryGen);
-    c.out.writeInt(primaryTCPPort);
-    c.flush();
-}
-}
+        {
+            using (Connection c = new Connection(tcpPort))
+            {
+                c.output.writeByte(SimpleReplicaNode.CMD_NEW_NRT_POINT);
+                c.output.writeVLong(version);
+                c.output.writeVLong(primaryGen);
+                c.output.writeInt(primaryTCPPort);
+                c.flush();
+            }
+        }
 
-// Simulate a replica holding a copy state open forever, by just leaking it.
+        /// <summary>
+        /// Simulate a replica holding a copy state open forever, by just leaking it.
+        /// </summary>
+        /// <exception cref="IOException"/>
+        public void leakCopyState()
+        {
+            using (Connection c = new Connection(tcpPort))
+            {
+                c.output.writeByte(SimplePrimaryNode.CMD_LEAK_COPY_STATE);
+                c.flush();
+            }
+        }
 
-public void leakCopyState() throws IOException
-{
-    try (Connection c = new Connection(tcpPort)) {
-    c.out.writeByte(SimplePrimaryNode.CMD_LEAK_COPY_STATE);
-    c.flush();
-}
-  }
+        /// <exception cref="IOException"/>
+        public void setRemoteCloseTimeoutMs(int timeoutMs)
+        {
+            using (Connection c = new Connection(tcpPort))
+            {
+                c.output.writeByte(SimplePrimaryNode.CMD_SET_CLOSE_WAIT_MS);
+                c.output.writeInt(timeoutMs);
+                c.flush();
+            }
+        }
 
-  public void setRemoteCloseTimeoutMs(int timeoutMs) throws IOException
-{
-    try (Connection c = new Connection(tcpPort)) {
-    c.out.writeByte(SimplePrimaryNode.CMD_SET_CLOSE_WAIT_MS);
-    c.out.writeInt(timeoutMs);
-    c.flush();
-}
-  }
+        /// <exception cref="IOException"/>
+        public void addOrUpdateDocument(Connection c, Document doc, boolean isUpdate)
+        {
+            if (isPrimary == false)
+            {
+                throw new IllegalStateException("only primary can index");
+            }
+            int fieldCount = 0;
 
-  public void addOrUpdateDocument(Connection c, Document doc, boolean isUpdate) throws IOException
-{
-    if (isPrimary == false) {
-        throw new IllegalStateException("only primary can index");
+            String title = doc.get("title");
+            if (title != null)
+            {
+                fieldCount++;
+            }
+
+            String docid = doc.get("docid");
+            assert docid != null;
+            fieldCount++;
+
+            String body = doc.get("body");
+            if (body != null)
+            {
+                fieldCount++;
+            }
+
+            String marker = doc.get("marker");
+            if (marker != null)
+            {
+                fieldCount++;
+            }
+
+            c.output.writeByte(isUpdate ? SimplePrimaryNode.CMD_UPDATE_DOC : SimplePrimaryNode.CMD_ADD_DOC);
+            c.output.writeVInt(fieldCount);
+            c.output.writeString("docid");
+            c.output.writeString(docid);
+            if (title != null)
+            {
+                c.output.writeString("title");
+                c.output.writeString(title);
+            }
+            if (body != null)
+            {
+                c.output.writeString("body");
+                c.output.writeString(body);
+            }
+            if (marker != null)
+            {
+                c.output.writeString("marker");
+                c.output.writeString(marker);
+            }
+            c.flush();
+            c.input.readByte();
+        }
+        /// <exception cref="IOException"/>
+        public void deleteDocument(Connection c, String docid)
+        {
+            if (isPrimary == false)
+            {
+                throw new IllegalStateException("only primary can delete documents");
+            }
+            c.output.writeByte(SimplePrimaryNode.CMD_DELETE_DOC);
+            c.output.writeString(docid);
+            c.flush();
+            c.input.readByte();
+        }
+        /// <exception cref="IOException"/>
+        public void deleteAllDocuments(Connection c)
+        {
+            if (isPrimary == false)
+            {
+                throw new IllegalStateException("only primary can delete documents");
+            }
+            c.output.writeByte(SimplePrimaryNode.CMD_DELETE_ALL_DOCS);
+            c.flush();
+            c.input.readByte();
+        }
+        /// <exception cref="IOException"/>
+        public void forceMerge(Connection c)
+        {
+            if (isPrimary == false)
+            {
+                throw new IllegalStateException("only primary can force merge");
+            }
+            c.output.writeByte(SimplePrimaryNode.CMD_FORCE_MERGE);
+            c.flush();
+            c.input.readByte();
+        }
     }
-    int fieldCount = 0;
-
-    String title = doc.get("title");
-    if (title != null)
-    {
-        fieldCount++;
-    }
-
-    String docid = doc.get("docid");
-    assert docid != null;
-    fieldCount++;
-
-    String body = doc.get("body");
-    if (body != null)
-    {
-        fieldCount++;
-    }
-
-    String marker = doc.get("marker");
-    if (marker != null)
-    {
-        fieldCount++;
-    }
-
-    c.out.writeByte(isUpdate ? SimplePrimaryNode.CMD_UPDATE_DOC : SimplePrimaryNode.CMD_ADD_DOC);
-    c.out.writeVInt(fieldCount);
-    c.out.writeString("docid");
-    c.out.writeString(docid);
-    if (title != null)
-    {
-        c.out.writeString("title");
-        c.out.writeString(title);
-    }
-    if (body != null)
-    {
-        c.out.writeString("body");
-        c.out.writeString(body);
-    }
-    if (marker != null)
-    {
-        c.out.writeString("marker");
-        c.out.writeString(marker);
-    }
-    c.flush();
-    c.in.readByte();
-    }
-
-  public void deleteDocument(Connection c, String docid) throws IOException
-{
-    if (isPrimary == false) {
-        throw new IllegalStateException("only primary can delete documents");
-    }
-    c.out.writeByte(SimplePrimaryNode.CMD_DELETE_DOC);
-    c.out.writeString(docid);
-    c.flush();
-    c.in.readByte();
-}
-
-public void deleteAllDocuments(Connection c) throws IOException
-{
-    if (isPrimary == false) {
-        throw new IllegalStateException("only primary can delete documents");
-    }
-    c.out.writeByte(SimplePrimaryNode.CMD_DELETE_ALL_DOCS);
-    c.flush();
-    c.in.readByte();
-}
-
-public void forceMerge(Connection c) throws IOException
-{
-    if (isPrimary == false) {
-        throw new IllegalStateException("only primary can force merge");
-    }
-    c.out.writeByte(SimplePrimaryNode.CMD_FORCE_MERGE);
-    c.flush();
-    c.in.readByte();
-}
-}
 }
