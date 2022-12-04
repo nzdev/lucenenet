@@ -329,8 +329,8 @@ namespace Lucene.Net.Codecs
                     "misplaced codec footer (file truncated?): length="
                         + input.Length
                         + " but footerLength=="
-                        + FooterLength(),
-                    input);
+                        + FooterLength()
+                        + input.ToString());
             }
             input.Seek(input.Length - FooterLength());
             ValidateFooter(input);

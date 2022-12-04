@@ -132,7 +132,7 @@ namespace Lucene.Net.Replicator.Nrt
                                 + actualChecksumIn);
                         throw new IOException("file " + name + ": checksum mismatch after file copy");
                     }
-                    CodecUtil.WriteBELong(out, checksum);
+                    CodecUtil.WriteBELong(output, checksum);
                     bytesCopied += Long.BYTES;
                     Close();
 
