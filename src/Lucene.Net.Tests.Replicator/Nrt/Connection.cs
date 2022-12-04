@@ -49,7 +49,7 @@ namespace Lucene.Net.Replicator.Nrt
             this.s = new Socket(InetAddress.getLoopbackAddress(), tcpPort);
             this.sockIn = s.getInputStream();
             this.input = new InputStreamDataInput(sockIn);
-            this.bos = new BufferedOutputStream(s.getOutputStream());
+            this.bos = new BufferedOutputStream(s.GetOutputStream());
             this.output = new OutputStreamDataOutput(bos);
             if (Node.VERBOSE_CONNECTIONS)
             {
@@ -72,7 +72,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"
         public void Dispose()
         {
-            s.close();
+            s.Close();
         }
 
     }

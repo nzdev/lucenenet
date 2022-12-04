@@ -164,7 +164,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// make the changes visible to searching. Returns true if there were changes.
         /// </summary>
         /// <exception cref="IOException"/>
-        public bool flushAndRefresh()
+        public bool FlushAndRefresh()
         {
             Message("top: now flushAndRefresh");
             Set<String> completedMergeFiles;
@@ -293,17 +293,17 @@ namespace Lucene.Net.Replicator.Nrt
 
         public override bool IsClosed()
         {
-            return isClosed(false);
+            return IsClosed(false);
         }
 
-        bool isClosed(bool allowClosing)
+        bool IsClosed(bool allowClosing)
         {
             return "closed".Equals(state) || (allowClosing == false && "closing".Equals(state));
         }
 
         private void ensureOpen(bool allowClosing)
         {
-            if (isClosed(allowClosing))
+            if (IsClosed(allowClosing))
             {
                 throw new AlreadyClosedException(state);
             }

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,118 +14,130 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+//import java.io.BufferedOutputStream;
+//import java.io.EOFException;
+//import java.io.IOException;
+//import java.io.InputStream;
+//import java.net.ServerSocket;
+//import java.net.Socket;
+//import java.nio.file.Path;
+//import java.util.ArrayList;
+//import java.util.Arrays;
+//import java.util.Collections;
+//import java.util.HashSet;
+//import java.util.Iterator;
+//import java.util.List;
+//import java.util.Locale;
+//import java.util.Map;
+//import java.util.Random;
+//import java.util.Set;
+//import java.util.concurrent.TimeUnit;
+//import java.util.concurrent.atomic.AtomicBoolean;
+//import org.apache.lucene.document.Document;
+//import org.apache.lucene.document.Field;
+//import org.apache.lucene.document.FieldType;
+//import org.apache.lucene.document.StringField;
+//import org.apache.lucene.document.TextField;
+//import org.apache.lucene.index.DirectoryReader;
+//import org.apache.lucene.index.IndexOptions;
+//import org.apache.lucene.index.IndexWriter;
+//import org.apache.lucene.index.IndexWriterConfig;
+//import org.apache.lucene.index.LogMergePolicy;
+//import org.apache.lucene.index.MergePolicy;
+//import org.apache.lucene.index.SegmentCommitInfo;
+//import org.apache.lucene.index.Term;
+//import org.apache.lucene.index.TieredMergePolicy;
+//import org.apache.lucene.search.IndexSearcher;
+//import org.apache.lucene.search.MatchAllDocsQuery;
+//import org.apache.lucene.search.ScoreDoc;
+//import org.apache.lucene.search.SearcherFactory;
+//import org.apache.lucene.search.TermQuery;
+//import org.apache.lucene.search.TopDocs;
+//import org.apache.lucene.store.DataInput;
+//import org.apache.lucene.store.DataOutput;
+//import org.apache.lucene.store.Directory;
+//import org.apache.lucene.store.IOContext;
+//import org.apache.lucene.store.IndexInput;
+//import org.apache.lucene.tests.analysis.MockAnalyzer;
+//import org.apache.lucene.tests.util.LuceneTestCase;
+//import org.apache.lucene.tests.util.TestUtil;
+//import org.apache.lucene.util.IOUtils;
+//import org.apache.lucene.util.ThreadInterruptedException;
+
+using J2N.IO;
+using Lucene;
+using Lucene.Net.Documents;
+using Lucene.Net.Index;
+using Lucene.Net.Replicator.Nrt;
+using Lucene.Net.Search;
+using Lucene.Net.Store;
+using Lucene.Net.Util;
+using System;
+using System.Collections;
+using System.Threading;
 
 namespace Lucene.Net.Replicator.Nrt
-
-import java.io.BufferedOutputStream;
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexOptions;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.LogMergePolicy;
-import org.apache.lucene.index.MergePolicy;
-import org.apache.lucene.index.SegmentCommitInfo;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.index.TieredMergePolicy;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.MatchAllDocsQuery;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.SearcherFactory;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.store.DataInput;
-import org.apache.lucene.store.DataOutput;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.IOContext;
-import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.tests.analysis.MockAnalyzer;
-import org.apache.lucene.tests.util.LuceneTestCase;
-import org.apache.lucene.tests.util.TestUtil;
-import org.apache.lucene.util.IOUtils;
-import org.apache.lucene.util.ThreadInterruptedException;
-
-/** A primary node that uses simple TCP connections to send commands and copy files */
-class SimplePrimaryNode extends PrimaryNode
 {
 
-    final int tcpPort;
-
-    final Random random;
-
-  // These are updated by parent test process whenever replicas change:
-  int[]
-    replicaTCPPorts = new int[0];
-int[] replicaIDs = new int[0];
-
-// So we only flip a bit once per file name:
-final Set<String> bitFlipped = Collections.synchronizedSet(new HashSet<>());
-
-final List<MergePreCopy> warmingSegments = Collections.synchronizedList(new ArrayList<>());
-
-final boolean doFlipBitsDuringCopy;
-
-static class MergePreCopy
-{
-    final List<Connection> connections = Collections.synchronizedList(new ArrayList<>());
-    final Map<String, FileMetaData> files;
-    private boolean finished;
-
-    public MergePreCopy(Map<String, FileMetaData> files)
+    /** A primary node that uses simple TCP connections to send commands and copy files */
+    class SimplePrimaryNode : PrimaryNode
     {
-        this.files = files;
-    }
 
-    public synchronized boolean tryAddConnection(Connection c)
-    {
-        if (finished == false)
-        {
-            connections.add(c);
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
+        readonly int tcpPort;
 
-    public synchronized boolean finished()
-    {
-        if (connections.isEmpty())
-        {
-            finished = true;
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-}
+        readonly Random random;
 
-public SimplePrimaryNode(
+        // These are updated by parent test process whenever replicas change:
+        int[] replicaTCPPorts = new int[0];
+        int[] replicaIDs = new int[0];
+
+        // So we only flip a bit once per file name:
+        readonly ISet<string> bitFlipped = Collections.synchronizedSet(new HashSet<>());
+
+        readonly IList<MergePreCopy> warmingSegments = Collections.synchronizedList(new ArrayList<>());
+
+        readonly bool doFlipBitsDuringCopy;
+
+        static class MergePreCopy
+        {
+            readonly IList<Connection> connections = Collections.synchronizedList(new ArrayList<>());
+            readonly IDictionary<String, FileMetaData> files;
+            private bool finished;
+
+            public MergePreCopy(IDictionary<string, FileMetaData> files)
+            {
+                this.files = files;
+            }
+
+            public synchronized bool TryAddConnection(Connection c)
+            {
+                if (finished == false)
+                {
+                    connections.add(c);
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            public synchronized bool Finished()
+            {
+                if (connections.isEmpty())
+                {
+                    finished = true;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        /// <exception cref="IOException"/>
+        public SimplePrimaryNode(
     Random random,
     Path indexPath,
     int id,
@@ -133,345 +145,356 @@ public SimplePrimaryNode(
     long primaryGen,
     long forcePrimaryVersion,
     SearcherFactory searcherFactory,
-    boolean doFlipBitsDuringCopy,
-    boolean doCheckIndexOnClose)
-      throws IOException
-{
-    super(
-        initWriter(id, random, indexPath, doCheckIndexOnClose),
-        id,
-        primaryGen,
-        forcePrimaryVersion,
-        searcherFactory,
-        System.out);
-    this.tcpPort = tcpPort;
-    this.random = new Random(random.nextLong());
-this.doFlipBitsDuringCopy = doFlipBitsDuringCopy;
-  }
-
-  /** Records currently alive replicas. */
-  public synchronized void setReplicas(int[] replicaIDs, int[] replicaTCPPorts)
-{
-    message(
-        "top: set replicasIDs="
-            + Arrays.toString(replicaIDs)
-            + " tcpPorts="
-            + Arrays.toString(replicaTCPPorts));
-    this.replicaIDs = replicaIDs;
-    this.replicaTCPPorts = replicaTCPPorts;
-}
-
-private static IndexWriter initWriter(
-    int id, Random random, Path indexPath, boolean doCheckIndexOnClose) throws IOException
-{
-    Directory dir = SimpleReplicaNode.getDirectory(random, id, indexPath, doCheckIndexOnClose);
-
-    MockAnalyzer analyzer = new MockAnalyzer(random);
-analyzer.setMaxTokenLength(TestUtil.nextInt(random, 1, IndexWriter.MAX_TERM_LENGTH));
-IndexWriterConfig iwc = LuceneTestCase.newIndexWriterConfig(random, analyzer);
-
-MergePolicy mp = iwc.getMergePolicy();
-// iwc.setInfoStream(new PrintStreamInfoStream(System.out));
-
-// Force more frequent merging so we stress merge warming:
-if (mp instanceof TieredMergePolicy) {
-    TieredMergePolicy tmp = (TieredMergePolicy)mp;
-    tmp.setSegmentsPerTier(3);
-    tmp.setMaxMergeAtOnce(3);
-} else if (mp instanceof LogMergePolicy) {
-    LogMergePolicy lmp = (LogMergePolicy)mp;
-    lmp.setMergeFactor(3);
-}
-
-IndexWriter writer = new IndexWriter(dir, iwc);
-
-TestUtil.reduceOpenFiles(writer);
-return writer;
-  }
-
-  @Override
-  protected void preCopyMergedSegmentFiles(SegmentCommitInfo info, Map<String, FileMetaData> files)
-      throws IOException
-{
-    int[]
-    replicaTCPPorts = this.replicaTCPPorts;
-    if (replicaTCPPorts == null) {
-        message("no replicas; skip warming " + info);
-        return;
-    }
-
-    message(
-        "top: warm merge "
-            + info
-            + " to "
-            + replicaTCPPorts.length
-            + " replicas; tcpPort="
-            + tcpPort
-            + ": files="
-            + files.keySet());
-
-    MergePreCopy preCopy = new MergePreCopy(files);
-warmingSegments.add(preCopy);
-
-try
-{
-    // Ask all currently known replicas to pre-copy this newly merged segment's files:
-    for (int replicaTCPPort : replicaTCPPorts)
-    {
-        try
+    bool doFlipBitsDuringCopy,
+    bool doCheckIndexOnClose)
         {
-            Connection c = new Connection(replicaTCPPort);
-            c.out.writeByte(SimpleReplicaNode.CMD_PRE_COPY_MERGE);
-            c.out.writeVLong(primaryGen);
-            c.out.writeVInt(tcpPort);
-            TestSimpleServer.writeFilesMetaData(c.out, files);
-            c.flush();
-            c.s.shutdownOutput();
-            message("warm connection " + c.s);
-            preCopy.connections.add(c);
+            super(
+                initWriter(id, random, indexPath, doCheckIndexOnClose),
+                id,
+                primaryGen,
+                forcePrimaryVersion,
+                searcherFactory,
+                System.out);
+            this.tcpPort = tcpPort;
+            this.random = new Random(random.nextLong());
+            this.doFlipBitsDuringCopy = doFlipBitsDuringCopy;
         }
-        catch (Throwable t)
+
+        /** Records currently alive replicas. */
+        public synchronized void setReplicas(int[] replicaIDs, int[] replicaTCPPorts)
         {
             message(
-                "top: ignore exception trying to warm to replica port " + replicaTCPPort + ": " + t);
-            // t.printStackTrace(System.out);
+                "top: set replicasIDs="
+                    + Arrays.toString(replicaIDs)
+                    + " tcpPorts="
+                    + Arrays.toString(replicaTCPPorts));
+            this.replicaIDs = replicaIDs;
+            this.replicaTCPPorts = replicaTCPPorts;
         }
-    }
 
-    long startNS = System.nanoTime();
-    long lastWarnNS = startNS;
-
-    // TODO: maybe ... place some sort of time limit on how long we are willing to wait for slow
-    // replica(s) to finish copying?
-    while (preCopy.finished() == false)
-    {
-        try
+        /// <exception cref="IOException"/>
+        private static IndexWriter initWriter(int id, Random random, Path indexPath, boolean doCheckIndexOnClose)
         {
-            Thread.sleep(10);
-        }
-        catch (InterruptedException ie)
-        {
-            throw new ThreadInterruptedException(ie);
-        }
+            Directory dir = SimpleReplicaNode.GetDirectory(random, id, indexPath, doCheckIndexOnClose);
 
-        if (isClosed())
-        {
-            message("top: primary is closing: now cancel segment warming");
-            synchronized(preCopy.connections) {
-                IOUtils.closeWhileHandlingException(preCopy.connections);
-            }
-            return;
-        }
+            MockAnalyzer analyzer = new MockAnalyzer(random);
+            analyzer.setMaxTokenLength(TestUtil.nextInt(random, 1, IndexWriter.MAX_TERM_LENGTH));
+            IndexWriterConfig iwc = LuceneTestCase.newIndexWriterConfig(random, analyzer);
 
-        long ns = System.nanoTime();
-        if (ns - lastWarnNS > 1000000000L)
-        {
-            message(
-                String.format(
-                    Locale.ROOT,
-                    "top: warning: still warming merge "
-                        + info
-                        + " to "
-                        + preCopy.connections.size()
-                        + " replicas for %.1f sec...",
-                    (ns - startNS) / (double)TimeUnit.SECONDS.toNanos(1)));
-            lastWarnNS = ns;
-        }
+            MergePolicy mp = iwc.getMergePolicy();
+            // iwc.setInfoStream(new PrintStreamInfoStream(System.out));
 
-        // Process keep-alives:
-        synchronized(preCopy.connections) {
-            Iterator<Connection> it = preCopy.connections.iterator();
-            while (it.hasNext())
+            // Force more frequent merging so we stress merge warming:
+            if (mp is TieredMergePolicy)
             {
-                Connection c = it.next();
-                try
+                TieredMergePolicy tmp = (TieredMergePolicy)mp;
+                tmp.SetSegmentsPerTier(3);
+                tmp.SetMaxMergeAtOnce(3);
+            }
+            else if (mp is LogMergePolicy)
+            {
+                LogMergePolicy lmp = (LogMergePolicy)mp;
+                lmp.setMergeFactor(3);
+            }
+
+            IndexWriter writer = new IndexWriter(dir, iwc);
+
+            TestUtil.reduceOpenFiles(writer);
+            return writer;
+        }
+
+
+        /// <exception cref="IOException"/>
+        protected override void preCopyMergedSegmentFiles(SegmentCommitInfo info, IDictionary<String, FileMetaData> files)
+        {
+            int[]
+            replicaTCPPorts = this.replicaTCPPorts;
+            if (replicaTCPPorts == null)
+            {
+                Message("no replicas; skip warming " + info);
+                return;
+            }
+
+            Message(
+                "top: warm merge "
+                    + info
+                    + " to "
+                    + replicaTCPPorts.length
+                    + " replicas; tcpPort="
+                    + tcpPort
+                    + ": files="
+                    + files.keySet());
+
+            MergePreCopy preCopy = new MergePreCopy(files);
+            warmingSegments.add(preCopy);
+
+            try
+            {
+                // Ask all currently known replicas to pre-copy this newly merged segment's files:
+                foreach (int replicaTCPPort in replicaTCPPorts)
                 {
-                    long nowNS = System.nanoTime();
-                    boolean done = false;
-                    while (c.sockIn.available() > 0)
+                    try
                     {
-                        byte b = c.in.readByte();
-                        if (b == 0)
-                        {
-                            // keep-alive
-                            c.lastKeepAliveNS = nowNS;
-                            message("keep-alive for socket=" + c.s + " merge files=" + files.keySet());
-                        }
-                        else
-                        {
-                            // merge is done pre-copying to this node
-                            if (b != 1)
-                            {
-                                throw new IllegalArgumentException();
-                            }
-                            message(
-                                "connection socket="
-                                    + c.s
-                                    + " is done warming its merge "
-                                    + info
-                                    + " files="
-                                    + files.keySet());
-                            IOUtils.closeWhileHandlingException(c);
-                            it.remove();
-                            done = true;
-                            break;
-                        }
+                        Connection c = new Connection(replicaTCPPort);
+                        c.output.writeByte(SimpleReplicaNode.CMD_PRE_COPY_MERGE);
+                        c.output.writeVLong(primaryGen);
+                        c.output.writeVInt(tcpPort);
+                        TestSimpleServer.writeFilesMetaData(c.output, files);
+                        c.flush();
+                        c.s.shutdownOutput();
+                        message("warm connection " + c.s);
+                        preCopy.connections.add(c);
                     }
-
-                    // If > 2 sec since we saw a keep-alive, assume this replica is dead:
-                    if (done == false && nowNS - c.lastKeepAliveNS > 2000000000L)
+                    catch (Throwable t)
                     {
-                        message(
-                            "top: warning: replica socket="
-                                + c.s
-                                + " for segment="
-                                + info
-                                + " seems to be dead; closing files="
-                                + files.keySet());
-                        IOUtils.closeWhileHandlingException(c);
-                        it.remove();
-                        done = true;
+                        Message(
+                            "top: ignore exception trying to warm to replica port " + replicaTCPPort + ": " + t);
+                        // t.printStackTrace(System.out);
                     }
-
-                    if (done == false && random.nextInt(1000) == 17)
-                    {
-                        message(
-                            "top: warning: now randomly dropping replica from merge warming; files="
-                                + files.keySet());
-                        IOUtils.closeWhileHandlingException(c);
-                        it.remove();
-                        done = true;
-                    }
-
                 }
-                catch (Throwable t)
+
+                long startNS = System.nanoTime();
+                long lastWarnNS = startNS;
+
+                // TODO: maybe ... place some sort of time limit on how long we are willing to wait for slow
+                // replica(s) to finish copying?
+                while (preCopy.Finished() == false)
                 {
-                    message(
-                        "top: ignore exception trying to read byte during warm for segment="
-                            + info
-                            + " to replica socket="
-                            + c.s
-                            + ": "
-                            + t
-                            + " files="
-                            + files.keySet());
-                    IOUtils.closeWhileHandlingException(c);
-                    it.remove();
+                    try
+                    {
+                        Thread.Sleep(10);
+                    }
+                    catch (InterruptedException ie)
+                    {
+                        throw new ThreadInterruptedException(ie);
+                    }
+
+                    if (isClosed())
+                    {
+                        Message("top: primary is closing: now cancel segment warming");
+                        synchronized(preCopy.connections) {
+                            IOUtils.closeWhileHandlingException(preCopy.connections);
+                        }
+                        return;
+                    }
+
+                    long ns = System.nanoTime();
+                    if (ns - lastWarnNS > 1000000000L)
+                    {
+                        message(
+                            String.format(
+                                Locale.ROOT,
+                                "top: warning: still warming merge "
+                                    + info
+                                    + " to "
+                                    + preCopy.connections.size()
+                                    + " replicas for %.1f sec...",
+                                (ns - startNS) / (double)TimeUnit.SECONDS.toNanos(1)));
+                        lastWarnNS = ns;
+                    }
+
+                    // Process keep-alives:
+                    synchronized(preCopy.connections) {
+                        Iterator<Connection> it = preCopy.connections.iterator();
+                        while (it.hasNext())
+                        {
+                            Connection c = it.next();
+                            try
+                            {
+                                long nowNS = Time.NanoTime();
+                                bool done = false;
+                                while (c.sockIn.available() > 0)
+                                {
+                                    byte b = c.input.readByte();
+                                    if (b == 0)
+                                    {
+                                        // keep-alive
+                                        c.lastKeepAliveNS = nowNS;
+                                        message("keep-alive for socket=" + c.s + " merge files=" + files.keySet());
+                                    }
+                                    else
+                                    {
+                                        // merge is done pre-copying to this node
+                                        if (b != 1)
+                                        {
+                                            throw new IllegalArgumentException();
+                                        }
+                                        message(
+                                            "connection socket="
+                                                + c.s
+                                                + " is done warming its merge "
+                                                + info
+                                                + " files="
+                                                + files.keySet());
+                                        IOUtils.CloseWhileHandlingException(c);
+                                        it.remove();
+                                        done = true;
+                                        break;
+                                    }
+                                }
+
+                                // If > 2 sec since we saw a keep-alive, assume this replica is dead:
+                                if (done == false && nowNS - c.lastKeepAliveNS > 2000000000L)
+                                {
+                                    message(
+                                        "top: warning: replica socket="
+                                            + c.s
+                                            + " for segment="
+                                            + info
+                                            + " seems to be dead; closing files="
+                                            + files.keySet());
+                                    IOUtils.CloseWhileHandlingException(c);
+                                    it.remove();
+                                    done = true;
+                                }
+
+                                if (done == false && random.nextInt(1000) == 17)
+                                {
+                                    message(
+                                        "top: warning: now randomly dropping replica from merge warming; files="
+                                            + files.keySet());
+                                    IOUtils.CloseWhileHandlingException(c);
+                                    it.remove();
+                                    done = true;
+                                }
+
+                            }
+                            catch (Exception t)
+                            {
+                                message(
+                                    "top: ignore exception trying to read byte during warm for segment="
+                                        + info
+                                        + " to replica socket="
+                                        + c.s
+                                        + ": "
+                                        + t
+                                        + " files="
+                                        + files.keySet());
+                                IOUtils.CloseWhileHandlingException(c);
+                                it.remove();
+                            }
+                        }
+                    }
                 }
             }
+            finally
+            {
+                warmingSegments.remove(preCopy);
+            }
         }
-    }
-}
-finally
-{
-    warmingSegments.remove(preCopy);
-}
-  }
 
-  /** Flushes all indexing ops to disk and notifies all replicas that they should now copy */
-  private void handleFlush(DataInput topIn, DataOutput topOut, BufferedOutputStream bos)
-      throws IOException
-{
-    Thread.currentThread().setName("flush");
-
-    int atLeastMarkerCount = topIn.readVInt();
-
-    int[]
-    replicaTCPPorts;
-    int[]
-    replicaIDs;
-    synchronized (this) {
-        replicaTCPPorts = this.replicaTCPPorts;
-        replicaIDs = this.replicaIDs;
-    }
-
-    message("now flush; " + replicaIDs.length + " replicas");
-
-    if (flushAndRefresh()) {
-        // Something did get flushed (there were indexing ops since the last flush):
-
-        verifyAtLeastMarkerCount(atLeastMarkerCount, null);
-
-        // Tell caller the version before pushing to replicas, so that even if we crash after this,
-        // caller will know what version we
-        // (possibly) pushed to some replicas.  Alternatively we could make this 2 separate ops?
-        long version = getCopyStateVersion();
-        message("send flushed version=" + version);
-        topOut.writeLong(version);
-        bos.flush();
-
-        // Notify current replicas:
-        for (int i = 0; i < replicaIDs.length; i++)
+        /** Flushes all indexing ops to disk and notifies all replicas that they should now copy */
+        /// <exception cref="IOException"/>
+        private void handleFlush(DataInput topIn, DataOutput topOut, BufferedOutputStream bos)
         {
-            int replicaID = replicaIDs[i];
-            try (Connection c = new Connection(replicaTCPPorts[i])) {
-            message("send NEW_NRT_POINT to R" + replicaID + " at tcpPort=" + replicaTCPPorts[i]);
-            c.out.writeByte(SimpleReplicaNode.CMD_NEW_NRT_POINT);
-            c.out.writeVLong(version);
-            c.out.writeVLong(primaryGen);
-            c.out.writeInt(tcpPort);
-            c.flush();
-            // TODO: we should use multicast to broadcast files out to replicas
-            // TODO: ... replicas could copy from one another instead of just primary
-            // TODO: we could also prioritize one replica at a time?
-        } catch (Throwable t)
+            Thread.CurrentThread.Name = ("flush");
+
+            int atLeastMarkerCount = topIn.readVInt();
+
+            int[]
+            replicaTCPPorts;
+            int[]
+            replicaIDs;
+            synchronized(this)
         {
-            message(
-                "top: failed to connect R"
-                    + replicaID
-                    + " for newNRTPoint; skipping: "
-                    + t.getMessage());
-        }
-    }
-} else
+                replicaTCPPorts = this.replicaTCPPorts;
+                replicaIDs = this.replicaIDs;
+            }
+
+            Message("now flush; " + replicaIDs.length + " replicas");
+
+            if (FlushAndRefresh())
+            {
+                // Something did get flushed (there were indexing ops since the last flush):
+
+                VerifyAtLeastMarkerCount(atLeastMarkerCount, null);
+
+                // Tell caller the version before pushing to replicas, so that even if we crash after this,
+                // caller will know what version we
+                // (possibly) pushed to some replicas.  Alternatively we could make this 2 separate ops?
+                long version = getCopyStateVersion();
+                message("send flushed version=" + version);
+                topOut.writeLong(version);
+                bos.flush();
+
+                // Notify current replicas:
+                for (int i = 0; i < replicaIDs.length; i++)
+                {
+                    int replicaID = replicaIDs[i];
+                    try (Connection c = new Connection(replicaTCPPorts[i])) {
+                    message("send NEW_NRT_POINT to R" + replicaID + " at tcpPort=" + replicaTCPPorts[i]);
+                    c.output.writeByte(SimpleReplicaNode.CMD_NEW_NRT_POINT);
+                    c.output.writeVLong(version);
+                    c.output.writeVLong(primaryGen);
+                    c.output.writeInt(tcpPort);
+                    c.flush();
+                    // TODO: we should use multicast to broadcast files out to replicas
+                    // TODO: ... replicas could copy from one another instead of just primary
+                    // TODO: we could also prioritize one replica at a time?
+                } catch (Exception t)
+                {
+                    Message(
+                        "top: failed to connect R"
+                            + replicaID
+                            + " for newNRTPoint; skipping: "
+                            + t.getMessage());
+                }
+            }
+        } else
 {
     // No changes flushed:
     topOut.writeLong(-getCopyStateVersion());
 }
-  }
+}
 
-  /** Pushes CopyState on the wire */
-  private static void writeCopyState(CopyState state, DataOutput out) throws IOException
+/** Pushes CopyState on the wire */
+/// <exception cref="IOException"/>
+private static void WriteCopyState(CopyState state, DataOutput output)
 {
     // TODO (opto): we could encode to byte[] once when we created the copyState, and then just send
     // same byts to all replicas...
-    out.writeVInt(state.infosBytes.length);
-    out.writeBytes(state.infosBytes, 0, state.infosBytes.length);
-    out.writeVLong(state.gen);
-    out.writeVLong(state.version);
-    TestSimpleServer.writeFilesMetaData(out, state.files);
+    output.writeVInt(state.infosBytes.length);
+    output.writeBytes(state.infosBytes, 0, state.infosBytes.length);
+    output.writeVLong(state.gen);
+    output.writeVLong(state.version);
+    TestSimpleServer.writeFilesMetaData(output, state.files);
 
-    out.writeVInt(state.completedMergeFiles.size());
+    output.writeVInt(state.completedMergeFiles.size());
     for (String fileName : state.completedMergeFiles) {
-      out.writeString(fileName);
-    }
-    out.writeVLong(state.primaryGen);
+    output.writeString(fileName);
+}
+output.writeVLong(state.primaryGen);
 }
 
 /** Called when another node (replica) wants to copy files from us */
-private boolean handleFetchFiles(
-    Random random, Socket socket, DataInput destIn, DataOutput destOut, BufferedOutputStream bos)
-      throws IOException
+/// <exception cref="IOException"/>
+private bool handleFetchFiles(Random random, Socket socket, DataInput destIn, DataOutput destOut, BufferedOutputStream bos)
 {
-    Thread.currentThread().setName("send");
+    Thread.CurrentThread.Name = ("send");
 
     int replicaID = destIn.readVInt();
     message("top: start fetch for R" + replicaID + " socket=" + socket);
     byte b = destIn.readByte();
     CopyState copyState;
-    if (b == 0) {
+    if (b == 0)
+    {
         // Caller already has CopyState
         copyState = null;
-    } else if (b == 1) {
+    }
+    else if (b == 1)
+    {
         // Caller does not have CopyState; we pull the latest one:
         copyState = getCopyState();
         Thread.currentThread().setName("send-R" + replicaID + "-" + copyState.version);
-    } else {
+    }
+    else
+    {
         // Protocol error:
         throw new IllegalArgumentException("invalid CopyState byte=" + b);
     }
 
-    try {
+    try
+    {
         if (copyState != null)
         {
             // Serialize CopyState on the wire to the client:
@@ -495,21 +518,22 @@ private boolean handleFetchFiles(
             }
 
             // Name of the file the replica wants us to send:
-            String fileName = destIn.readString();
+            string fileName = destIn.ReadString();
 
             // Starting offset in the file we should start sending bytes from:
             long fpStart = destIn.readVLong();
 
-            try (IndexInput in = dir.openInput(fileName, IOContext.DEFAULT)) {
-                long len = in.length();
+            using (IndexInput input = dir.openInput(fileName, IOContext.DEFAULT))
+            {
+                long len = input.length();
                 // message("fetch " + fileName + ": send len=" + len);
                 destOut.writeVLong(len);
-          in.seek(fpStart);
+                input.seek(fpStart);
                 long upto = fpStart;
                 while (upto < len)
                 {
                     int chunk = (int)Math.min(buffer.length, (len - upto));
-            in.readBytes(buffer, 0, chunk);
+                    input.readBytes(buffer, 0, chunk);
                     if (doFlipBitsDuringCopy)
                     {
                         if (random.nextInt(3000) == 17 && bitFlipped.contains(fileName) == false)
@@ -534,35 +558,36 @@ private boolean handleFetchFiles(
             }
 
             fileCount++;
-            }
-
-      message(
-          "top: done fetch files for R"
-              + replicaID
-              + ": sent "
-              + fileCount
-              + " files; sent "
-              + totBytesSent
-              + " bytes");
-        } catch (Throwable t)
-        {
-            message("top: exception during fetch: " + t.getMessage() + "; now close socket");
-            socket.close();
-            return false;
-        }
-        finally
-        {
-            if (copyState != null)
-            {
-                message("top: fetch: now release CopyState");
-                releaseCopyState(copyState);
-            }
         }
 
-        return true;
+        Message(
+            "top: done fetch files for R"
+                + replicaID
+                + ": sent "
+                + fileCount
+                + " files; sent "
+                + totBytesSent
+                + " bytes");
+    }
+    catch (Throwable t)
+    {
+        message("top: exception during fetch: " + t.getMessage() + "; now close socket");
+        socket.close();
+        return false;
+    }
+    finally
+    {
+        if (copyState != null)
+        {
+            message("top: fetch: now release CopyState");
+            releaseCopyState(copyState);
+        }
     }
 
-  static final FieldType tokenizedWithTermVectors;
+    return true;
+}
+
+static readonly FieldType tokenizedWithTermVectors;
 
 static
 {
@@ -573,425 +598,431 @@ static
     tokenizedWithTermVectors.setStoreTermVectorPositions(true);
 }
 
+/// <exception cref="IOException"/>
+/// <exception cref="InterruptedException"/>
 private void handleIndexing(
     Socket socket,
     AtomicBoolean stop,
-    InputStream is,
-    DataInput in,
-    DataOutput out,
+    InputStream inputstream,
+    DataInput datainput,
+    DataOutput dataoutput,
     BufferedOutputStream bos)
-      throws IOException, InterruptedException {
-    Thread.currentThread().setName("indexing");
-message("start handling indexing socket=" + socket);
-while (true)
 {
+    Thread.CurrentThread.Name = ("indexing");
+    Message("start handling indexing socket=" + socket);
     while (true)
     {
-        if (is.available() > 0)
+        while (true)
         {
-            break;
+            if (inputstream.available() > 0)
+            {
+                break;
+            }
+            if (stop.get())
+            {
+                return;
+            }
+            Thread.Sleep(10);
         }
-        if (stop.get())
+        byte cmd;
+        try
         {
+            cmd = datainput.ReadByte();
+        }
+        catch (
+              // @SuppressWarnings("unused")
+              EOFException eofe)
+        {
+            // done
             return;
         }
-        Thread.sleep(10);
-    }
-    byte cmd;
-    try
-    {
-        cmd = in.readByte();
-    }
-    catch (
-        @SuppressWarnings("unused")
-          EOFException eofe) {
-        // done
-        return;
-    }
-    // message("INDEXING OP " + cmd);
-    if (cmd == CMD_ADD_DOC)
-    {
-        handleAddDocument(in, out);
-        out.writeByte((byte)1);
-        bos.flush();
-    }
-    else if (cmd == CMD_UPDATE_DOC)
-    {
-        handleUpdateDocument(in, out);
-        out.writeByte((byte)1);
-        bos.flush();
-    }
-    else if (cmd == CMD_DELETE_DOC)
-    {
-        handleDeleteDocument(in, out);
-        out.writeByte((byte)1);
-        bos.flush();
-    }
-    else if (cmd == CMD_DELETE_ALL_DOCS)
-    {
-        writer.deleteAll();
-        out.writeByte((byte)1);
-        bos.flush();
-    }
-    else if (cmd == CMD_FORCE_MERGE)
-    {
-        writer.forceMerge(1);
-        out.writeByte((byte)1);
-        bos.flush();
-    }
-    else if (cmd == CMD_INDEXING_DONE)
-    {
-        out.writeByte((byte)1);
-        bos.flush();
-        break;
-    }
-    else
-    {
-        throw new IllegalArgumentException("cmd must be add, update or delete; got " + cmd);
-    }
+        // message("INDEXING OP " + cmd);
+        if (cmd == CMD_ADD_DOC)
+        {
+            handleAddDocument(datainput, dataoutput);
+            dataoutput.writeByte((byte)1);
+            bos.flush();
+        }
+        else if (cmd == CMD_UPDATE_DOC)
+        {
+            handleUpdateDocument(datainput, dataoutput);
+            dataoutput.WriteByte((byte)1);
+            bos.flush();
+        }
+        else if (cmd == CMD_DELETE_DOC)
+        {
+            handleDeleteDocument(datainput, dataoutput);
+            dataoutput.WriteByte((byte)1);
+            bos.flush();
+        }
+        else if (cmd == CMD_DELETE_ALL_DOCS)
+        {
+            writer.deleteAll();
+            dataoutput.WriteByte((byte)1);
+            bos.flush();
+        }
+        else if (cmd == CMD_FORCE_MERGE)
+        {
+            writer.forceMerge(1);
+            dataoutput.WriteByte((byte)1);
+            bos.flush();
+        }
+        else if (cmd == CMD_INDEXING_DONE)
+        {
+            dataoutput.WriteByte((byte)1);
+            bos.flush();
+            break;
+        }
+        else
+        {
+            throw new IllegalArgumentException("cmd must be add, update or delete; got " + cmd);
+        }
     }
 }
-
-private void handleAddDocument(DataInput in, DataOutput out) throws IOException
+/// <exception cref="IOException"/>
+private void handleAddDocument(DataInput input, DataOutput output)
 {
-    int fieldCount = in.readVInt();
+    int fieldCount = input.ReadVInt();
     Document doc = new Document();
-for (int i = 0; i < fieldCount; i++)
-{
-    String name = in.readString();
-    String value = in.readString();
-    // NOTE: clearly NOT general!
-    if (name.equals("docid") || name.equals("marker"))
+    for (int i = 0; i < fieldCount; i++)
     {
-        doc.add(new StringField(name, value, Field.Store.YES));
+        string name = input.ReadString();
+        string value = input.ReadString();
+        // NOTE: clearly NOT general!
+        if (name.Equals("docid") || name.Equals("marker"))
+        {
+            doc.Add(new StringField(name, value, Field.Store.YES));
+        }
+        else if (name.Equals("title"))
+        {
+            doc.Add(new StringField("title", value, Field.Store.YES));
+            doc.Add(new Field("titleTokenized", value, tokenizedWithTermVectors));
+        }
+        else if (name.Equals("body"))
+        {
+            doc.Add(new Field("body", value, tokenizedWithTermVectors));
+        }
+        else
+        {
+            throw new IllegalArgumentException("unhandled field name " + name);
+        }
     }
-    else if (name.equals("title"))
-    {
-        doc.add(new StringField("title", value, Field.Store.YES));
-        doc.add(new Field("titleTokenized", value, tokenizedWithTermVectors));
-    }
-    else if (name.equals("body"))
-    {
-        doc.add(new Field("body", value, tokenizedWithTermVectors));
-    }
-    else
-    {
-        throw new IllegalArgumentException("unhandled field name " + name);
-    }
+    writer.addDocument(doc);
 }
-writer.addDocument(doc);
-  }
-
-  private void handleUpdateDocument(DataInput in, DataOutput out) throws IOException
+/// <exception cref="IOException"/>
+private void handleUpdateDocument(DataInput input, DataOutput output)
 {
-    int fieldCount = in.readVInt();
+    int fieldCount = input.ReadVInt();
     Document doc = new Document();
-String docid = null;
-for (int i = 0; i < fieldCount; i++)
-{
-    String name = in.readString();
-    String value = in.readString();
-    // NOTE: clearly NOT general!
-    if (name.equals("docid"))
+    string docid = null;
+    for (int i = 0; i < fieldCount; i++)
     {
-        docid = value;
-        doc.add(new StringField("docid", value, Field.Store.YES));
+        string name = input.ReadString();
+        string value = input.ReadString();
+        // NOTE: clearly NOT general!
+        if (name.Equals("docid"))
+        {
+            docid = value;
+            doc.Add(new StringField("docid", value, Field.Store.YES));
+        }
+        else if (name.Equals("marker"))
+        {
+            doc.Add(new StringField("marker", value, Field.Store.YES));
+        }
+        else if (name.Equals("title"))
+        {
+            doc.Add(new StringField("title", value, Field.Store.YES));
+            doc.Add(new Field("titleTokenized", value, tokenizedWithTermVectors));
+        }
+        else if (name.Equals("body"))
+        {
+            doc.Add(new Field("body", value, tokenizedWithTermVectors));
+        }
+        else
+        {
+            throw new IllegalArgumentException("unhandled field name " + name);
+        }
     }
-    else if (name.equals("marker"))
-    {
-        doc.add(new StringField("marker", value, Field.Store.YES));
-    }
-    else if (name.equals("title"))
-    {
-        doc.add(new StringField("title", value, Field.Store.YES));
-        doc.add(new Field("titleTokenized", value, tokenizedWithTermVectors));
-    }
-    else if (name.equals("body"))
-    {
-        doc.add(new Field("body", value, tokenizedWithTermVectors));
-    }
-    else
-    {
-        throw new IllegalArgumentException("unhandled field name " + name);
-    }
+
+    writer.updateDocument(new Term("docid", docid), doc);
 }
-
-writer.updateDocument(new Term("docid", docid), doc);
-  }
-
-  private void handleDeleteDocument(DataInput in, DataOutput out) throws IOException
+/// <exception cref="IOException"/>
+private void handleDeleteDocument(DataInput input, DataOutput output)
 {
-    String docid = in.readString();
+    string docid = input.ReadString();
     writer.deleteDocuments(new Term("docid", docid));
-  }
+}
 
-  // Sent to primary to cutover new SIS:
-  static final byte CMD_FLUSH = 10;
+// Sent to primary to cutover new SIS:
+static readonly byte CMD_FLUSH = 10;
 
 // Sent by replica to primary asking to copy a set of files over:
-static final byte CMD_FETCH_FILES = 1;
-static final byte CMD_GET_SEARCHING_VERSION = 12;
-static final byte CMD_SEARCH = 2;
-static final byte CMD_MARKER_SEARCH = 3;
-static final byte CMD_COMMIT = 4;
-static final byte CMD_CLOSE = 5;
-static final byte CMD_SEARCH_ALL = 21;
+static readonly byte CMD_FETCH_FILES = 1;
+static readonly byte CMD_GET_SEARCHING_VERSION = 12;
+static readonly byte CMD_SEARCH = 2;
+static readonly byte CMD_MARKER_SEARCH = 3;
+static readonly byte CMD_COMMIT = 4;
+static readonly byte CMD_CLOSE = 5;
+static readonly byte CMD_SEARCH_ALL = 21;
 
 // Send (to primary) the list of currently running replicas:
-static final byte CMD_SET_REPLICAS = 16;
+static readonly byte CMD_SET_REPLICAS = 16;
 
 // Multiple indexing ops
-static final byte CMD_INDEXING = 18;
-static final byte CMD_ADD_DOC = 6;
-static final byte CMD_UPDATE_DOC = 7;
-static final byte CMD_DELETE_DOC = 8;
-static final byte CMD_INDEXING_DONE = 19;
-static final byte CMD_DELETE_ALL_DOCS = 22;
-static final byte CMD_FORCE_MERGE = 23;
+static readonly byte CMD_INDEXING = 18;
+static readonly byte CMD_ADD_DOC = 6;
+static readonly byte CMD_UPDATE_DOC = 7;
+static readonly byte CMD_DELETE_DOC = 8;
+static readonly byte CMD_INDEXING_DONE = 19;
+static readonly byte CMD_DELETE_ALL_DOCS = 22;
+static readonly byte CMD_FORCE_MERGE = 23;
 
 // Sent by replica to primary when replica first starts up, so primary can add it to any warming
 // merges:
-static final byte CMD_NEW_REPLICA = 20;
+static readonly byte CMD_NEW_REPLICA = 20;
 
 // Leak a CopyState to simulate failure
-static final byte CMD_LEAK_COPY_STATE = 24;
-static final byte CMD_SET_CLOSE_WAIT_MS = 25;
+static readonly byte CMD_LEAK_COPY_STATE = 24;
+static readonly byte CMD_SET_CLOSE_WAIT_MS = 25;
 
 /** Handles incoming request to the naive TCP server wrapping this node */
-void handleOneConnection(
+/// <exception cref="IOException"/>
+/// /// <exception cref="InterruptedException"/>
+void HandleOneConnection(
     Random random,
     ServerSocket ss,
     AtomicBoolean stop,
-    InputStream is,
+    InputStream inputstream,
     Socket socket,
-    DataInput in,
-    DataOutput out,
+    DataInput input,
+    DataOutput output,
     BufferedOutputStream bos)
-      throws IOException, InterruptedException {
-
-    outer:
-    while (true)
 {
-    byte cmd;
+
+outer:
     while (true)
     {
-        if (is.available() > 0)
+        byte cmd;
+        while (true)
+        {
+            if (inputstream.available() > 0)
+            {
+                break;
+            }
+            if (stop.get())
+            {
+                return;
+            }
+            Thread.sleep(10);
+        }
+
+        try
+        {
+            cmd = input.readByte();
+        }
+        catch (
+              //SuppressWarnings("unused")
+              EOFException eofe)
         {
             break;
         }
-        if (stop.get())
+
+        switch (cmd)
         {
-            return;
-        }
-        Thread.sleep(10);
-    }
+            case CMD_FLUSH:
+                handleFlush(input, output, bos);
+                break;
 
-    try
-    {
-        cmd = in.readByte();
-    }
-    catch (
-        @SuppressWarnings("unused")
-          EOFException eofe) {
-        break;
-    }
+            case CMD_FETCH_FILES:
+                // Replica (other node) is asking us (primary node) for files to copy
+                handleFetchFiles(random, socket, input, output, bos);
+                break;
 
-    switch (cmd)
-    {
-        case CMD_FLUSH:
-            handleFlush(in, out, bos);
-            break;
+            case CMD_INDEXING:
+                handleIndexing(socket, stop, inputstream, input, output, bos);
+                break;
 
-        case CMD_FETCH_FILES:
-            // Replica (other node) is asking us (primary node) for files to copy
-            handleFetchFiles(random, socket, in, out, bos);
-            break;
+            case CMD_GET_SEARCHING_VERSION:
+                output.writeVLong(getCurrentSearchingVersion());
+                break;
 
-        case CMD_INDEXING:
-            handleIndexing(socket, stop, is, in, out, bos);
-            break;
-
-        case CMD_GET_SEARCHING_VERSION:
-          out.writeVLong(getCurrentSearchingVersion());
-            break;
-
-        case CMD_SEARCH:
-        {
-            Thread.currentThread().setName("search");
-            IndexSearcher searcher = mgr.acquire();
-            try
-            {
-                long version = ((DirectoryReader)searcher.getIndexReader()).getVersion();
-                int hitCount = searcher.count(new TermQuery(new Term("body", "the")));
-              // message("version=" + version + " searcher=" + searcher);
-              out.writeVLong(version);
-              out.writeVInt(hitCount);
-                bos.flush();
-            }
-            finally
-            {
-                mgr.release(searcher);
-            }
-            bos.flush();
-        }
-        continue outer;
-
-        case CMD_SEARCH_ALL:
-        {
-            Thread.currentThread().setName("search all");
-            IndexSearcher searcher = mgr.acquire();
-            try
-            {
-                long version = ((DirectoryReader)searcher.getIndexReader()).getVersion();
-                int hitCount = searcher.count(new MatchAllDocsQuery());
-              // message("version=" + version + " searcher=" + searcher);
-              out.writeVLong(version);
-              out.writeVInt(hitCount);
-                bos.flush();
-            }
-            finally
-            {
-                mgr.release(searcher);
-            }
-        }
-        continue outer;
-
-        case CMD_MARKER_SEARCH:
-        {
-            Thread.currentThread().setName("msearch");
-            int expectedAtLeastCount = in.readVInt();
-            verifyAtLeastMarkerCount(expectedAtLeastCount, out);
-            bos.flush();
-        }
-        continue outer;
-
-        case CMD_COMMIT:
-            Thread.currentThread().setName("commit");
-            commit();
-          out.writeByte((byte)1);
-            break;
-
-        case CMD_CLOSE:
-            Thread.currentThread().setName("close");
-            message("top close: now close server socket");
-            ss.close();
-          out.writeByte((byte)1);
-            message("top close: done close server socket");
-            break;
-
-        case CMD_SET_REPLICAS:
-            Thread.currentThread().setName("set repls");
-            int count = in.readVInt();
-            int[] replicaIDs = new int[count];
-            int[] replicaTCPPorts = new int[count];
-            for (int i = 0; i < count; i++)
-            {
-                replicaIDs[i] = in.readVInt();
-                replicaTCPPorts[i] = in.readVInt();
-            }
-          out.writeByte((byte)1);
-            setReplicas(replicaIDs, replicaTCPPorts);
-            break;
-
-        case CMD_NEW_REPLICA:
-            Thread.currentThread().setName("new repl");
-            int replicaTCPPort = in.readVInt();
-            message("new replica: " + warmingSegments.size() + " current warming merges");
-            // Step through all currently warming segments and try to add this replica if it isn't
-            // there already:
-            synchronized(warmingSegments) {
-                for (MergePreCopy preCopy : warmingSegments)
+            case CMD_SEARCH:
                 {
-                    message("warming segment " + preCopy.files.keySet());
-                    boolean found = false;
-                    synchronized(preCopy.connections) {
-                        for (Connection c : preCopy.connections)
-                        {
-                            if (c.destTCPPort == replicaTCPPort)
+                    Thread.CurrentThread.Name = ("search");
+                    IndexSearcher searcher = mgr.Acquire();
+                    try
+                    {
+                        long version = ((DirectoryReader)searcher.GetIndexReader()).GetVersion();
+                        int hitCount = searcher.Count(new TermQuery(new Term("body", "the")));
+                        // message("version=" + version + " searcher=" + searcher);
+                        output.writeVLong(version);
+                        output.writeVInt(hitCount);
+                        bos.flush();
+                    }
+                    finally
+                    {
+                        mgr.release(searcher);
+                    }
+                    bos.flush();
+                }
+                continue outer;
+
+            case CMD_SEARCH_ALL:
+                {
+                    Thread.CurrentThread.Name = ("search all");
+                    IndexSearcher searcher = mgr.acquire();
+                    try
+                    {
+                        long version = ((DirectoryReader)searcher.GetIndexReader()).GetVersion();
+                        int hitCount = searcher.count(new MatchAllDocsQuery());
+                        // message("version=" + version + " searcher=" + searcher);
+                        output.writeVLong(version);
+                        output.writeVInt(hitCount);
+                        bos.flush();
+                    }
+                    finally
+                    {
+                        mgr.release(searcher);
+                    }
+                }
+                continue outer;
+
+            case CMD_MARKER_SEARCH:
+                {
+                    Thread.CurrentThread.Name = ("msearch");
+                    int expectedAtLeastCount = input.ReadVInt();
+                    VerifyAtLeastMarkerCount(expectedAtLeastCount, output);
+                    bos.flush();
+                }
+                continue outer;
+
+            case CMD_COMMIT:
+                Thread.CurrentThread.Name = ("commit");
+                commit();
+                output.writeByte((byte)1);
+                break;
+
+            case CMD_CLOSE:
+                Thread.CurrentThread.Name = ("close");
+                message("top close: now close server socket");
+                ss.close();
+                output.writeByte((byte)1);
+                message("top close: done close server socket");
+                break;
+
+            case CMD_SET_REPLICAS:
+                Thread.CurrentThread.Name = ("set repls");
+                int count = input.ReadVInt();
+                int[] replicaIDs = new int[count];
+                int[] replicaTCPPorts = new int[count];
+                for (int i = 0; i < count; i++)
+                {
+                    replicaIDs[i] = input.ReadVInt();
+                    replicaTCPPorts[i] = input.ReadVInt();
+                }
+                output.writeByte((byte)1);
+                setReplicas(replicaIDs, replicaTCPPorts);
+                break;
+
+            case CMD_NEW_REPLICA:
+                Thread.CurrentThread.Name = ("new repl");
+                int replicaTCPPort = input.ReadVInt();
+                Message("new replica: " + warmingSegments.size() + " current warming merges");
+                // Step through all currently warming segments and try to add this replica if it isn't
+                // there already:
+                synchronized(warmingSegments) {
+                    foreach (MergePreCopy preCopy in warmingSegments)
+                    {
+                        Message("warming segment " + preCopy.files.keySet());
+                        bool found = false;
+                        synchronized(preCopy.connections) {
+                            foreach (Connection c in preCopy.connections)
                             {
-                                found = true;
-                                break;
+                                if (c.destTCPPort == replicaTCPPort)
+                                {
+                                    found = true;
+                                    break;
+                                }
                             }
                         }
-                    }
 
-                    if (found)
-                    {
-                        message("this replica is already warming this segment; skipping");
-                        // It's possible (maybe) that the replica started up, then a merge kicked off, and
-                        // it warmed to this new replica, all before the
-                        // replica sent us this command:
-                        continue;
-                    }
+                        if (found)
+                        {
+                            message("this replica is already warming this segment; skipping");
+                            // It's possible (maybe) that the replica started up, then a merge kicked off, and
+                            // it warmed to this new replica, all before the
+                            // replica sent us this command:
+                            continue;
+                        }
 
-                    // OK, this new replica is not already warming this segment, so attempt (could fail)
-                    // to start warming now:
+                        // OK, this new replica is not already warming this segment, so attempt (could fail)
+                        // to start warming now:
 
-                    Connection c = new Connection(replicaTCPPort);
-                    if (preCopy.tryAddConnection(c) == false)
-                    {
-                        // This can happen, if all other replicas just now finished warming this segment,
-                        // and so we were just a bit too late.  In this
-                        // case the segment will be copied over in the next nrt point sent to this replica
-                        message("failed to add connection to segment warmer (too late); closing");
-                        c.close();
+                        Connection c = new Connection(replicaTCPPort);
+                        if (preCopy.tryAddConnection(c) == false)
+                        {
+                            // This can happen, if all other replicas just now finished warming this segment,
+                            // and so we were just a bit too late.  In this
+                            // case the segment will be copied over in the next nrt point sent to this replica
+                            message("failed to add connection to segment warmer (too late); closing");
+                            c.close();
+                        }
+                        c.output.writeByte(SimpleReplicaNode.CMD_PRE_COPY_MERGE);
+                        c.output.writeVLong(primaryGen);
+                        c.output.writeVInt(tcpPort);
+                        TestSimpleServer.writeFilesMetaData(c.output, preCopy.files);
+                        c.flush();
+                        c.s.shutdownOutput();
+                        message("successfully started warming");
                     }
-                    c.out.writeByte(SimpleReplicaNode.CMD_PRE_COPY_MERGE);
-                    c.out.writeVLong(primaryGen);
-                    c.out.writeVInt(tcpPort);
-                    TestSimpleServer.writeFilesMetaData(c.out, preCopy.files);
-                    c.flush();
-                    c.s.shutdownOutput();
-                    message("successfully started warming");
                 }
-            }
-            break;
+                break;
 
-        case CMD_LEAK_COPY_STATE:
-            message("leaking a CopyState");
-            getCopyState();
-            continue outer;
+            case CMD_LEAK_COPY_STATE:
+                message("leaking a CopyState");
+                getCopyState();
+                continue outer;
 
-        case CMD_SET_CLOSE_WAIT_MS:
-            setRemoteCloseTimeoutMs(in.readInt());
-            continue outer;
+            case CMD_SET_CLOSE_WAIT_MS:
+                setRemoteCloseTimeoutMs(input.readInt());
+                continue outer;
 
-        default:
-            throw new IllegalArgumentException("unrecognized cmd=" + cmd + " via socket=" + socket);
-    }
-    bos.flush();
-    break;
+            default:
+                throw new IllegalArgumentException("unrecognized cmd=" + cmd + " via socket=" + socket);
+        }
+        bos.flush();
+        break;
     }
 }
-
-private void verifyAtLeastMarkerCount(int expectedAtLeastCount, DataOutput out)
-      throws IOException
+/// <exception cref="IOException"/>
+private void VerifyAtLeastMarkerCount(int expectedAtLeastCount, DataOutput output)
 {
-    IndexSearcher searcher = mgr.acquire();
-    try {
-        long version = ((DirectoryReader)searcher.getIndexReader()).getVersion();
-        int hitCount = searcher.count(new TermQuery(new Term("marker", "marker")));
+    IndexSearcher searcher = mgr.Acquire();
+    try
+    {
+        long version = ((DirectoryReader)searcher.GetIndexReader()).GetVersion();
+        int hitCount = searcher.Count(new TermQuery(new Term("marker", "marker")));
 
         if (hitCount < expectedAtLeastCount)
         {
-            message(
+            Message(
                 "marker search: expectedAtLeastCount="
                     + expectedAtLeastCount
                     + " but hitCount="
                     + hitCount);
             TopDocs hits =
-                searcher.search(new TermQuery(new Term("marker", "marker")), expectedAtLeastCount);
+                searcher.Search(new TermQuery(new Term("marker", "marker")), expectedAtLeastCount);
             List<Integer> seen = new ArrayList<>();
-            for (ScoreDoc hit : hits.scoreDocs)
+            foreach (ScoreDoc hit in hits.ScoreDocs)
             {
-                Document doc = searcher.doc(hit.doc);
-                seen.add(Integer.parseInt(doc.get("docid").substring(1)));
+                Document doc = searcher.Doc(hit.Doc);
+                seen.Add(int.Parse(doc.Get("docid").Substring(1)));
             }
             Collections.sort(seen);
-            message("saw markers:");
-            for (int marker : seen)
+            Message("saw markers:");
+            foreach (int marker in seen)
             {
-                message("saw m" + marker);
+                Message("saw m" + marker);
             }
             throw new IllegalStateException(
                 "at flush: marker count "
@@ -1002,11 +1033,14 @@ private void verifyAtLeastMarkerCount(int expectedAtLeastCount, DataOutput out)
                     + version);
         }
 
-        if (out != null) {
-        out.writeVLong(version);
-        out.writeVInt(hitCount);
+        if (output != null)
+        {
+            output.WriteVLong(version);
+            output.WriteVInt(hitCount);
         }
-    } finally {
+    }
+    finally
+    {
         mgr.release(searcher);
     }
 }
