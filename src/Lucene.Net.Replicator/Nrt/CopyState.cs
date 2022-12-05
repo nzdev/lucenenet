@@ -48,7 +48,7 @@ namespace Lucene.Net.Replicator.Nrt
 #pragma warning restore IDE1006 // Naming Styles
 
         public CopyState(
-            Dictionary<string, FileMetaData> files,
+            IReadOnlyDictionary<string, FileMetaData> files,
             long version,
             long gen,
             byte[] infosBytes,

@@ -62,7 +62,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// <summary>
         ///  Contains merged segments that have been copied to all running replicas (as of when that merge started warming).
         /// </summary>
-        readonly ISet<string> finishedMergedFiles = new ConcurrentHashSet<string>();
+        internal readonly ISet<string> finishedMergedFiles = new ConcurrentHashSet<string>();
 
         private readonly AtomicInt32 copyingCount = new AtomicInt32();
 
@@ -102,7 +102,7 @@ namespace Lucene.Net.Replicator.Nrt
                         commitData.Add(ent.Key, ent.Value);
                     }
                 }
-                commitData.Add(PRIMARY_GEN_KEY, Long.toString(primaryGen));
+                commitData.Add(PRIMARY_GEN_KEY, primaryGen.ToString());
                 if (commitData[VERSION_KEY] == null)
                 {
                     commitData.Add(VERSION_KEY, "0");
@@ -252,11 +252,11 @@ namespace Lucene.Net.Replicator.Nrt
         public override void Commit()
         {
             IDictionary<string, string> commitData = new Dictionary<string, string>();
-            commitData.Add(PRIMARY_GEN_KEY, Long.toString(primaryGen));
+            commitData.Add(PRIMARY_GEN_KEY, primaryGen.ToString());
             // TODO (opto): it's a bit wasteful that we put "last refresh" version here, not the actual
             // version we are committing, because it means
             // on xlog replay we are replaying more ops than necessary.
-            commitData.Add(VERSION_KEY, Long.toString(copyState.version));
+            commitData.Add(VERSION_KEY, copyState.version.ToString());
             Message("top: commit commitData=" + commitData);
             writer.SetLiveCommitData(commitData.AsEnumerable(), false);
             writer.Commit();
@@ -264,7 +264,7 @@ namespace Lucene.Net.Replicator.Nrt
 
         /** IncRef the current CopyState and return it */
         /// <exception cref="IOException"/>
-        public CopyState getCopyState()
+        public CopyState GetCopyState()
         {
             UninterruptableMonitor.Enter(this);
             try
@@ -377,11 +377,11 @@ namespace Lucene.Net.Replicator.Nrt
                 using (ByteBuffersIndexOutput tmpIndexOutput =
                     new ByteBuffersIndexOutput(buffer, "temporary", "temporary"))
                 {
-                    infos.write(tmpIndexOutput);
+                    infos.Write(tmpIndexOutput);
                 }
                 byte[] infosBytes = buffer.toArrayCopy();
 
-                IDictionary<string, FileMetaData> filesMetaData = new Dictionary<string, FileMetaData>();
+                Dictionary<string, FileMetaData> filesMetaData = new Dictionary<string, FileMetaData>();
                 foreach (SegmentCommitInfo info in infos)
                 {
                     foreach (String fileName in info.GetFiles())
@@ -397,7 +397,7 @@ namespace Lucene.Net.Replicator.Nrt
                     }
                 }
 
-                lastFileMetaData = Collections.unmodifiableMap(filesMetaData);
+                lastFileMetaData = filesMetaData;
 
                 Message(
                     "top: set copyState primaryGen="

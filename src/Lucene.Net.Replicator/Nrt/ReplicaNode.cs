@@ -186,7 +186,7 @@ namespace Lucene.Net.Replicator.Nrt
                         Message("top: init: read existing segments commit " + segmentsFileName);
                         infos = SegmentInfos.ReadCommit(dir, segmentsFileName);
                         Message("top: init: segments: " + infos.ToString() + " version=" + infos.Version);
-                        ICollection<string> indexFiles = infos.Files(false);
+                        ICollection<string> indexFiles = infos.GetFiles(dir, false);
 
                         lastCommitFiles.Add(segmentsFileName);
                         lastCommitFiles.AddAll(indexFiles);
@@ -854,7 +854,7 @@ namespace Lucene.Net.Replicator.Nrt
             try
             {
                 Message("top: close mgr");
-                mgr.Close();
+                mgr.Dispose();
 
                 Message("top: decRef lastNRTFiles=" + lastNRTFiles);
                 deleter.DecRef(lastNRTFiles);

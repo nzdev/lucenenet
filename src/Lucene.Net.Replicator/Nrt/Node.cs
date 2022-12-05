@@ -82,9 +82,11 @@ namespace Lucene.Net.Replicator.Nrt
 
         // For debugging:
         protected volatile String state = "idle";
-
-        /** File metadata for last sync that succeeded; we use this as a cache */
-        protected volatile IDictionary<string, FileMetaData> lastFileMetaData;
+        
+        /// <summary>
+        /// File metadata for last sync that succeeded; we use this as a cache
+        /// </summary>
+        protected volatile Dictionary<string, FileMetaData> lastFileMetaData;
 
         public Node(int id, Directory dir, SearcherFactory searcherFactory, TextWriter TextWriter)
         {
@@ -204,15 +206,12 @@ namespace Lucene.Net.Replicator.Nrt
             }
         }
 
-        /**
-         * Opens the specified file, reads its identifying information, including file length, full index
-         * header (includes the unique segment ID) and the full footer (includes checksum), and returns
-         * the resulting {@link FileMetaData}.
-         *
-         * <p>This returns null, logging a message, if there are any problems (the file does not exist, is
-         * corrupt, truncated, etc.).
-         */
-
+        /// <summary>
+        /// Opens the specified file, reads its identifying information, including file length, full index
+        /// header (includes the unique segment ID) and the full footer (includes checksum), and returns
+        /// the resulting {@link FileMetaData}.
+        /// This returns null, logging a message, if there are any problems (the file does not exist, is corrupt, truncated, etc.).
+        /// </summary>
         /// <exception cref="IOException"/>
         public FileMetaData ReadLocalFileMetaData(string fileName)
         {
