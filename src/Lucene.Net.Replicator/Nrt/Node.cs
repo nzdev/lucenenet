@@ -64,8 +64,10 @@ namespace Lucene.Net.Replicator.Nrt
 
         protected readonly SearcherFactory searcherFactory;
 
-        // Tracks NRT readers, opened from IW (primary) or opened from replicated SegmentInfos pulled
-        // across the wire (replica):
+        /// <summary>
+        /// Tracks NRT readers, opened from IW (primary) or opened from replicated SegmentInfos pulled
+        /// across the wire (replica):
+        /// </summary>
         protected ReferenceManager<IndexSearcher> mgr;
 
         /// <summary>
@@ -104,13 +106,17 @@ namespace Lucene.Net.Replicator.Nrt
             this.TextWriter = TextWriter;
         }
 
-        /** Returns the {@link ReferenceManager} to use for acquiring and releasing searchers */
+        /// <summary>
+        ///  Returns the <see cref="ReferenceManager"/> to use for acquiring and releasing searchers
+        /// </summary>
         public ReferenceManager<IndexSearcher> GetSearcherManager()
         {
             return mgr;
         }
 
-        /** Returns the {@link Directory} this node is writing to */
+        /// <summary>
+        /// Returns the <see cref="Directory"/> this node is writing to
+        /// </summary>
         public Directory GetDirectory()
         {
             return dir;

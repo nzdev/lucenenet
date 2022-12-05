@@ -28,7 +28,7 @@ namespace Lucene.Net.Replicator.Nrt
 {
     /// <summary>
     /// A SearcherManager that refreshes via an externally provided (NRT) SegmentInfos, either from
-    /// {@link IndexWriter} or via nrt replication to another index.
+    /// <see cref="IndexWriter"/> or via nrt replication to another index.
     /// </summary>
     /// <remarks>
     /// @lucene.experimental

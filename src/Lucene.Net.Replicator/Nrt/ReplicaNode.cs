@@ -834,7 +834,7 @@ namespace Lucene.Net.Replicator.Nrt
         }
 
         /// <exception cref="IOException"/>
-        public override void Close()
+        public override void Dispose()
         {
             Message("top: now close");
             UninterruptableMonitor.Enter(this);
@@ -970,7 +970,7 @@ namespace Lucene.Net.Replicator.Nrt
                                     else
                                     {
                                         bool abort = false;
-                                        foreach (String fileName in fileNames)
+                                        foreach (string fileName in fileNames)
                                         {
                                             if (lastNRTFiles.Contains(fileName))
                                             {
@@ -1029,9 +1029,6 @@ namespace Lucene.Net.Replicator.Nrt
                         }
                         ));
 
-
-
-
                 job.Start();
 
                 // When warming a merge we better not already have any of these files copied!
@@ -1058,10 +1055,10 @@ namespace Lucene.Net.Replicator.Nrt
             return dir.CreateTempOutput(prefix, suffix, IOContext.DEFAULT);
         }
 
-        /**
-         * Compares incoming per-file identity (id, checksum, header, footer) versus what we have locally
-         * and returns the subset of the incoming files that need copying
-         */
+        /// <summary>
+        /// Compares incoming per-file identity (id, checksum, header, footer) versus what we have locally
+        /// and returns the subset of the incoming files that need copying
+        /// </summary>
         /// <exception cref="IOException"/>
         public List<KeyValuePair<String, FileMetaData>> GetFilesToCopy(IDictionary<String, FileMetaData> files)
         {
@@ -1080,12 +1077,12 @@ namespace Lucene.Net.Replicator.Nrt
             return toCopy;
         }
 
-        /**
-         * Carefully determine if the file on the primary, identified by its {@code String fileName} along
-         * with the {@link FileMetaData} "summarizing" its contents, is precisely the same file that we
-         * have locally. If the file does not exist locally, or if its header (includes the segment id),
-         * length, footer (including checksum) differ, then this returns false, else true.
-         */
+        /// <summary>
+        /// Carefully determine if the file on the primary, identified by its {@code String fileName} along
+        /// with the {@link FileMetaData} "summarizing" its contents, is precisely the same file that we
+        /// have locally. If the file does not exist locally, or if its header (includes the segment id),
+        /// length, footer (including checksum) differ, then this returns false, else true.
+        /// </summary>
         /// <exception cref="IOException"/>
         private bool FileIsIdentical(String fileName, FileMetaData srcMetaData)
         {
@@ -1120,7 +1117,7 @@ namespace Lucene.Net.Replicator.Nrt
         {
             if (copying.PutIfAbsent(name, Boolean.TRUE) != null)
             {
-                throw new IllegalStateException("file " + name + " is being copied in two places!");
+                throw IllegalStateException.Create("file " + name + " is being copied in two places!");
             }
         }
 
@@ -1128,7 +1125,7 @@ namespace Lucene.Net.Replicator.Nrt
         {
             if (copying.Remove(name) == null)
             {
-                throw new IllegalStateException("file " + name + " was not actually being copied?");
+                throw IllegalStateException.Create("file " + name + " was not actually being copied?");
             }
         }
     }

@@ -35,7 +35,6 @@ namespace Lucene.Net.Replicator.Nrt
     /// </summary>
     class PreCopyMergedSegmentWarmer : IndexReaderWarmer
     {
-
         private readonly PrimaryNode primary;
 
         public PreCopyMergedSegmentWarmer(PrimaryNode primary)
