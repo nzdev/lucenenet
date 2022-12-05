@@ -140,10 +140,10 @@ namespace Lucene.Net.Replicator.Nrt
     });
   }
 
-/**
- * Tracks how many readers are still open, so that when we are closed, we can additionally wait
- * until all in-flight searchers are closed.
- */
+/// <summary>
+/// Tracks how many readers are still open, so that when we are closed, we can additionally wait
+/// until all in-flight searchers are closed.
+/// </summary>
 void OnReaderClosed()
 {
     UninterruptableMonitor.Enter(this);

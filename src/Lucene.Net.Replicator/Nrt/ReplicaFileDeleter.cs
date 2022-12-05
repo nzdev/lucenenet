@@ -44,10 +44,10 @@ namespace Lucene.Net.Replicator.Nrt
             this.node = node;
         }
 
-        /**
-         * Used only by asserts: returns true if the file exists (can be opened), false if it cannot be
-         * opened, and (unlike Java's File.exists) throws IOException if there's some unexpected error.
-         */
+        /// <summary>
+        /// Used only by asserts: returns true if the file exists (can be opened), false if it cannot be
+        /// opened, and (unlike Java's File.exists) throws IOException if there's some unexpected error.
+        /// </summary>
         /// <exception cref="IOException"/>
         private static bool SlowFileExists(Directory dir, string fileName)
         {
