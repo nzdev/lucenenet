@@ -20,7 +20,6 @@ using J2N.Threading.Atomic;
 using Lucene.Net.Diagnostics;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
-using Lucene.Net.Store;
 using Lucene.Net.Support;
 using Lucene.Net.Support.Threading;
 using Lucene.Net.Util;
@@ -95,7 +94,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 // Record our primaryGen in the userData, and set initial version to 0:
                 IDictionary<string, string> commitData = new Dictionary<string, string>();
-                Iterable<KeyValuePair<string, string>> iter = writer.GetLiveCommitData();
+                IEnumerable<KeyValuePair<string, string>> iter = writer.GetLiveCommitData();
                 if (iter != null)
                 {
                     foreach (KeyValuePair<string, string> ent in iter)
@@ -113,7 +112,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     Message("keep current commitData version=" + commitData[VERSION_KEY]);
                 }
-                writer.SetLiveCommitData(commitData.entrySet(), false);
+                writer.SetLiveCommitData(commitData.AsEnumerable(), false);
 
                 // We forcefully advance the SIS version to an unused future version.  This is necessary if
                 // the previous primary crashed and we are

@@ -541,7 +541,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 // Must first incRef new NRT files, then decRef old ones, to make sure we don't remove an NRT
                 // file that's in common to both:
-                ICollection<string> newFiles = copyState.files.Keys;
+                ICollection<string> newFiles = copyState.files.Keys.ToList();
                 Message("top: incRef newNRTFiles=" + newFiles);
                 deleter.IncRef(newFiles);
 

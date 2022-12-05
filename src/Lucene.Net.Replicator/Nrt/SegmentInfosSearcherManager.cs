@@ -22,18 +22,17 @@ using Lucene.Net.Store;
 using Lucene.Net.Support.Threading;
 using System.Collections.Generic;
 using System.IO;
+using Directory = Lucene.Net.Store.Directory;
 
 namespace Lucene.Net.Replicator.Nrt
 {
-
-
-
-    /**
-     * A SearcherManager that refreshes via an externally provided (NRT) SegmentInfos, either from
-     * {@link IndexWriter} or via nrt replication to another index.
-     *
-     * @lucene.experimental
-     */
+    /// <summary>
+    /// A SearcherManager that refreshes via an externally provided (NRT) SegmentInfos, either from
+    /// {@link IndexWriter} or via nrt replication to another index.
+    /// </summary>
+    /// <remarks>
+    /// @lucene.experimental
+    /// </remarks>
     class SegmentInfosSearcherManager : ReferenceManager<IndexSearcher>
     {
         private volatile SegmentInfos currentInfos;
