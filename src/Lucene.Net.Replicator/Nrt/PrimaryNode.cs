@@ -491,7 +491,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// Called when a merge has finished, but before IW switches to the merged segment
         /// </summary>
         /// <exception cref="IOException"/>
-        protected abstract void PreCopyMergedSegmentFiles(
+        internal abstract void PreCopyMergedSegmentFiles(
             SegmentCommitInfo info, IDictionary<string, FileMetaData> files);
     }
 }

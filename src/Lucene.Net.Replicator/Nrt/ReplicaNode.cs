@@ -189,12 +189,12 @@ namespace Lucene.Net.Replicator.Nrt
                         ICollection<string> indexFiles = infos.GetFiles(dir, false);
 
                         lastCommitFiles.Add(segmentsFileName);
-                        lastCommitFiles.AddAll(indexFiles);
+                        lastCommitFiles.AddRange(indexFiles);
 
                         // Always protect the last commit:
                         deleter.IncRef(lastCommitFiles);
 
-                        lastNRTFiles.AddAll(indexFiles);
+                        lastNRTFiles.AddRange(indexFiles);
                         deleter.IncRef(lastNRTFiles);
                         Message("top: commitFiles=" + lastCommitFiles);
                         Message("top: nrtFiles=" + lastNRTFiles);
@@ -343,7 +343,7 @@ namespace Lucene.Net.Replicator.Nrt
                         deleter.DecRef(lastNRTFiles);
 
                         lastNRTFiles.Clear();
-                        lastNRTFiles.AddAll(job.GetFileNames());
+                        lastNRTFiles.AddRange(job.GetFileNames());
 
                         Message("top: init: set lastNRTFiles=" + lastNRTFiles);
                         lastFileMetaData = job.GetCopyState().files;
@@ -472,7 +472,7 @@ namespace Lucene.Net.Replicator.Nrt
                 Message("top: commit decRef lastCommitFiles=" + lastCommitFiles);
                 deleter.DecRef(lastCommitFiles);
                 lastCommitFiles.Clear();
-                lastCommitFiles.AddAll(indexFiles);
+                lastCommitFiles.AddRange(indexFiles);
                 lastCommitFiles.Add(segmentsFileName);
                 Message("top: commit version=" + infos.Version + " files now " + lastCommitFiles);
             }
@@ -553,7 +553,7 @@ namespace Lucene.Net.Replicator.Nrt
                 Message("top: decRef lastNRTFiles=" + lastNRTFiles);
                 deleter.DecRef(lastNRTFiles);
                 lastNRTFiles.Clear();
-                lastNRTFiles.AddAll(newFiles);
+                lastNRTFiles.AddRange(newFiles);
                 Message("top: set lastNRTFiles=" + lastNRTFiles);
 
                 // At this point we can remove any completed merge segment files that we still do not

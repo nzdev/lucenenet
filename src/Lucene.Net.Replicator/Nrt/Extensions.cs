@@ -2,6 +2,7 @@
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Directory = Lucene.Net.Store.Directory;
 
@@ -35,6 +36,21 @@ namespace Lucene.Net.Replicator.Nrt
         {
             //Long.BYTES
             return 8;
+        }
+
+        internal static void AddRange<T>(this ISet<T> set, IEnumerable<T> items)
+        {
+            foreach (var item in items)
+            {
+                set.Add(item);
+            }
+        }
+        internal static void AddRange<T>(this ICollection<T> collection, IEnumerable<T> items)
+        {
+            foreach (var item in items)
+            {
+                collection.Add(item);
+            }
         }
     }
 }

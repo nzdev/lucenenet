@@ -15,15 +15,6 @@
  * limitations under the License.
  */
 
-//import java.io.IOException;
-//import java.util.HashMap;
-//import java.util.Locale;
-//import java.util.Map;
-//import java.util.concurrent.TimeUnit;
-//import org.apache.lucene.index.IndexWriter.IndexReaderWarmer;
-//import org.apache.lucene.index.LeafReader;
-//import org.apache.lucene.index.SegmentCommitInfo;
-//import org.apache.lucene.index.SegmentReader;
 using J2N;
 using J2N.Collections.Generic;
 using Lucene.Net.Diagnostics;
@@ -76,7 +67,7 @@ namespace Lucene.Net.Replicator.Nrt
                     "top: done warm merge " + info + ": took %.3f sec, %.1f MB",
                     (Time.NanoTime() - startNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
                     info.GetSizeInBytes() / 1024.0 / 1024.0));
-            primary.finishedMergedFiles.addAll(filesMetaData.Keys);
+            primary.finishedMergedFiles.AddRange(filesMetaData.Keys);
         }
     }
 }
