@@ -255,6 +255,8 @@ namespace Lucene.Net.Index
         private volatile bool closed;
         private volatile bool closing;
 
+        private IEnumerable<KeyValuePair<string, string>> commitUserData;
+
         // Holds all SegmentInfo instances currently involved in
         // merges
         private readonly JCG.HashSet<SegmentCommitInfo> mergingSegments = new JCG.HashSet<SegmentCommitInfo>();
@@ -951,6 +953,8 @@ namespace Lucene.Net.Index
                 }
 
                 rollbackSegments = segmentInfos.CreateBackupSegmentInfos();
+
+                commitUserData = new Dictionary<string,string>(segmentInfos.GetUserData()).entrySet();
 
                 // start with previous field numbers, but new FieldInfos
                 globalFieldNumberMap = FieldNumberMap;
@@ -3929,6 +3933,16 @@ namespace Lucene.Net.Index
 
                                 readerPool.Commit(segmentInfos);
 
+                                if (commitUserData != null)
+                                {
+                                    IDictionary<string, string> userData = new Dictionary<string, string>();
+                                    foreach (KeyValuePair<string, string> ent in commitUserData)
+                                    {
+                                        userData.Add(ent.Key, ent.Value);
+                                    }
+                                    segmentInfos.SetUserData(userData, false);
+                                }
+
                                 // Must clone the segmentInfos while we still
                                 // hold fullFlushLock and while sync'd so that
                                 // no partial changes (eg a delete w/o
@@ -6484,5 +6498,74 @@ namespace Lucene.Net.Index
                 return false;
             }
         }
+
+
+        /// <summary>
+        /// Sets the iterator to provide the commit user data map at commit time. Calling this method is
+        /// considered a committable change and will be {@link #commit() committed} even if there are no
+        /// other changes this writer. Note that you must call this method before {@link #prepareCommit()}.
+        /// Otherwise it won't be included in the follow-on {@link #commit()}.
+        /// </summary>
+        /// <remarks>
+        /// NOTE: the iterator is late-binding: it is only visited once all documents for the
+        /// commit have been written to their segments, before the next segments_N file is written
+        /// </remarks>
+        /// <param name="commitUserData"></param>
+        public void SetLiveCommitData(IEnumerable<KeyValuePair<string, string>> commitUserData)
+        {
+            UninterruptableMonitor.Enter(this);
+            try
+            {
+                SetLiveCommitData(commitUserData, true);
+            }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+        }
+
+        ///<summary>
+        /// Sets the commit user data iterator, controlling whether to advance the {@link
+        /// SegmentInfos#getVersion}.
+        /// @see #setLiveCommitData(Iterable)
+        /// </summary>
+        /// <remarks>
+        /// @lucene.internal
+        /// </remarks>
+        public void SetLiveCommitData(IEnumerable<KeyValuePair<string, string>> commitUserData, bool doIncrementVersion)
+        {
+            UninterruptableMonitor.Enter(this);
+            try
+            {
+                this.commitUserData = commitUserData;
+                if (doIncrementVersion)
+                {
+                    segmentInfos.Changed();
+                }
+                ++changeCount;
+            }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+        }
+
+        ///<summary>
+        /// Returns the commit user data iterable previously set with {@link #setLiveCommitData(Iterable)},
+        /// or null if nothing has been set yet.
+        /// </summary>
+        public IEnumerable<KeyValuePair<string, string>> GetLiveCommitData()
+        {
+            UninterruptableMonitor.Enter(this);
+            try
+            {
+                return commitUserData;
+            }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+        }
+
     }
 }

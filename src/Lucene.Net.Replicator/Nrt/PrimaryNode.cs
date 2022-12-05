@@ -94,7 +94,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 // Record our primaryGen in the userData, and set initial version to 0:
                 IDictionary<string, string> commitData = new Dictionary<string, string>();
-                Iterable<KeyValuePair<string, string>> iter = writer.getLiveCommitData();
+                Iterable<KeyValuePair<string, string>> iter = writer.GetLiveCommitData();
                 if (iter != null)
                 {
                     foreach (KeyValuePair<string, string> ent in iter)
@@ -205,18 +205,21 @@ namespace Lucene.Net.Replicator.Nrt
             UninterruptableMonitor.Enter(this);
             try
             {
-                Iterable<KeyValuePair<string, string>> iter = writer.GetLiveCommitData();
-                assert iter != null;
-                foreach (KeyValuePair<string, string> ent : iter)
+                IEnumerable<KeyValuePair<string, string>> iter = writer.GetLiveCommitData();
+                if (Debugging.AssertsEnabled)
                 {
-                    if (ent.getKey().equals(VERSION_KEY))
+                    Debugging.Assert(iter != null);
+                }
+                foreach (KeyValuePair<string, string> ent in  iter)
+                {
+                    if (ent.Key.Equals(VERSION_KEY))
                     {
-                        return Long.parseLong(ent.getValue());
+                        return long.Parse(ent.Value);
                     }
                 }
 
                 // In ctor we always install an initial version:
-                throw new AssertionError("missing VERSION_KEY");
+                throw AssertionError.Create("missing VERSION_KEY");
             }
             finally
             {
@@ -339,7 +342,7 @@ namespace Lucene.Net.Replicator.Nrt
                 try
                 {
                     searcher = mgr.Acquire();
-                    infos = ((StandardDirectoryReader)searcher.GetIndexReader()).getSegmentInfos();
+                    infos = ((StandardDirectoryReader)searcher.GetIndexReader()).GetSegmentInfos();
                 }
                 finally
                 {
