@@ -1050,7 +1050,7 @@ namespace Lucene.Net.Replicator.Nrt
 
 
         /// <exception cref="IOException"/>
-        public IndexOutput CreateTempOutput(String prefix, String suffix, IOContext ioContext)
+        public IndexOutput CreateTempOutput(string prefix, string suffix, IOContext ioContext)
         {
             return dir.CreateTempOutput(prefix, suffix, IOContext.DEFAULT);
         }
@@ -1060,13 +1060,13 @@ namespace Lucene.Net.Replicator.Nrt
         /// and returns the subset of the incoming files that need copying
         /// </summary>
         /// <exception cref="IOException"/>
-        public List<KeyValuePair<String, FileMetaData>> GetFilesToCopy(IDictionary<String, FileMetaData> files)
+        public List<KeyValuePair<string, FileMetaData>> GetFilesToCopy(IDictionary<string, FileMetaData> files)
         {
 
-            List<KeyValuePair<String, FileMetaData>> toCopy = new List<KeyValuePair<String, FileMetaData>>();
-            foreach (KeyValuePair<String, FileMetaData> ent in files)
+            List<KeyValuePair<string, FileMetaData>> toCopy = new List<KeyValuePair<string, FileMetaData>>();
+            foreach (KeyValuePair<string, FileMetaData> ent in files)
             {
-                String fileName = ent.Key;
+                string fileName = ent.Key;
                 FileMetaData fileMetaData = ent.Value;
                 if (FileIsIdentical(fileName, fileMetaData) == false)
                 {
@@ -1113,7 +1113,7 @@ namespace Lucene.Net.Replicator.Nrt
         private ConcurrentDictionary<string, bool> copying = new ConcurrentDictionary<string, bool>();
 
         // Used only to catch bugs, ensuring a given file name is only ever being copied bye one job:
-        public void StartCopyFile(String name)
+        public void StartCopyFile(string name)
         {
             if (copying.PutIfAbsent(name, Boolean.TRUE) != null)
             {
@@ -1121,7 +1121,7 @@ namespace Lucene.Net.Replicator.Nrt
             }
         }
 
-        public void FinishCopyFile(String name)
+        public void FinishCopyFile(string name)
         {
             if (copying.Remove(name) == null)
             {

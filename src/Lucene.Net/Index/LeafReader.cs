@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+using Lucene.Net.Diagnostics;
 using Lucene.Net.Search;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -84,12 +86,12 @@ instances are completely thread safe, meaning multiple
         public override sealed int DocFreq(Term term)
         {
             /*readonly*/
-            Terms terms = Terms.GetTerms(this, term.Field());
+            Terms terms = Terms.GetTerms(this, term.Field);
             /*readonly*/
             TermsEnum termsEnum = terms.iterator();
-            if (termsEnum.SeekExact(term.Bytes()))
+            if (termsEnum.SeekExact(term.Bytes))
             {
-                return termsEnum.DocFreq();
+                return termsEnum.DocFreq;
             }
             else
             {
@@ -107,12 +109,12 @@ instances are completely thread safe, meaning multiple
         {
 
             /*readonly*/
-            Terms terms = Terms.GetTerms(this, term.field());
+            Terms terms = Terms.GetTerms(this, term.Field);
             /*readonly*/
-            TermsEnum termsEnum = terms.iterator();
-            if (termsEnum.seekExact(term.bytes()))
+            TermsEnum termsEnum = terms.Iterator();
+            if (termsEnum.SeekExact(term.bytes()))
             {
-                return termsEnum.totalTermFreq();
+                return termsEnum.TotalTermFreq;
             }
             else
             {
@@ -121,7 +123,7 @@ instances are completely thread safe, meaning multiple
         }
 
         /// <exception cref="IOException"/>
-        public override sealed long GetSumDocFreq(String field)
+        public override sealed long GetSumDocFreq(string field)
         {
 
             /*readonly*/
@@ -130,11 +132,11 @@ instances are completely thread safe, meaning multiple
             {
                 return 0;
             }
-            return terms.GetSumDocFreq();
+            return terms.SumDocFreq;
         }
 
         /// <exception cref="IOException"/>
-        public override sealed int GetDocCount(String field)
+        public override sealed int GetDocCount(string field)
         {
             /*readonly*/
             Terms terms = terms(field);
@@ -142,11 +144,11 @@ instances are completely thread safe, meaning multiple
             {
                 return 0;
             }
-            return terms.GetDocCount();
+            return terms.DocCount;
         }
 
         /// <exception cref="IOException"/>
-        public override sealed long GetSumTotalTermFreq(String field)
+        public override sealed long GetSumTotalTermFreq(string field)
         {
             /*readonly*/
             Terms terms = terms(field);
@@ -154,12 +156,12 @@ instances are completely thread safe, meaning multiple
             {
                 return 0;
             }
-            return terms.GetSumTotalTermFreq();
+            return terms.SumTotalTermFreq;
         }
 
         /** Returns the {@link Terms} index for this field, or null if it has none. */
         /// <exception cref="IOException"/>
-        public abstract Terms terms(String field);
+        public abstract Terms Terms(string field);
 
         /**
          * Returns {@link PostingsEnum} for the specified term. This will return null if either the field
@@ -172,13 +174,16 @@ instances are completely thread safe, meaning multiple
         /// <exception cref="IOException"/>
         public override sealed PostingsEnum Postings(Term term, int flags)
         {
-            assert term.field() != null;
-            assert term.bytes() != null;
-            final Terms terms = Terms.getTerms(this, term.field());
-            final TermsEnum termsEnum = terms.iterator();
-            if (termsEnum.seekExact(term.bytes()))
+            if (Debugging.AssertsEnabled)
             {
-                return termsEnum.postings(null, flags);
+                Debugging.Assert(term.Field != null);
+                Debugging.Assert(term.Bytes != null);
+            }
+            Terms terms = Terms.GetTerms(this, term.Field);
+            TermsEnum termsEnum = terms.iterator();
+            if (termsEnum.SeekExact(term.Bytes))
+            {
+                return termsEnum.Postings(null, flags);
             }
             return null;
         }
@@ -195,9 +200,9 @@ instances are completely thread safe, meaning multiple
          * @see #postings(Term, int)
          */
         /// <exception cref="IOException"/>
-        public sealed PostingsEnum postings(Term term)
+        public sealed PostingsEnum Postings(Term term)
         {
-            return postings(term, PostingsEnum.FREQS);
+            return Postings(term, PostingsEnum.FREQS);
         }
 
         /**
@@ -205,21 +210,21 @@ instances are completely thread safe, meaning multiple
          * for this field. The returned instance should only be used by a single thread.
          */
         /// <exception cref="IOException"/>
-        public abstract NumericDocValues GetNumericDocValues(String field);
+        public abstract NumericDocValues GetNumericDocValues(string field);
 
         /**
          * Returns {@link BinaryDocValues} for this field, or null if no binary doc values were indexed
          * for this field. The returned instance should only be used by a single thread.
          */
         /// <exception cref="IOException"/>
-        public abstract BinaryDocValues GetBinaryDocValues(String field);
+        public abstract BinaryDocValues GetBinaryDocValues(string field);
 
         /**
          * Returns {@link SortedDocValues} for this field, or null if no {@link SortedDocValues} were
          * indexed for this field. The returned instance should only be used by a single thread.
          */
         /// <exception cref="IOException"/>
-        public abstract SortedDocValues GetSortedDocValues(String field);
+        public abstract SortedDocValues GetSortedDocValues(string field);
 
         /**
          * Returns {@link SortedNumericDocValues} for this field, or null if no {@link
@@ -227,21 +232,21 @@ instances are completely thread safe, meaning multiple
          * by a single thread.
          */
         /// <exception cref="IOException"/>
-        public abstract SortedNumericDocValues getSortedNumericDocValues(String field);
+        public abstract SortedNumericDocValues GetSortedNumericDocValues(string field);
 
         /**
          * Returns {@link SortedSetDocValues} for this field, or null if no {@link SortedSetDocValues}
          * were indexed for this field. The returned instance should only be used by a single thread.
          */
         /// <exception cref="IOException"/>
-        public abstract SortedSetDocValues getSortedSetDocValues(String field);
+        public abstract SortedSetDocValues GetSortedSetDocValues(string field);
 
         /**
          * Returns {@link NumericDocValues} representing norms for this field, or null if no {@link
          * NumericDocValues} were indexed. The returned instance should only be used by a single thread.
          */
         /// <exception cref="IOException"/>
-        public abstract NumericDocValues getNormValues(String field);
+        public abstract NumericDocValues GetNormValues(string field);
 
         /**
          * Returns {@link VectorValues} for this field, or null if no {@link VectorValues} were indexed.
@@ -250,7 +255,7 @@ instances are completely thread safe, meaning multiple
          * @lucene.experimental
          */
         /// <exception cref="IOException"/>
-        public abstract VectorValues GetVectorValues(String field);
+        public abstract VectorValues GetVectorValues(string field);
 
         /**
          * Return the k nearest neighbor documents as determined by comparison of their vector values for
@@ -279,7 +284,7 @@ instances are completely thread safe, meaning multiple
          */
         /// <exception cref="IOException"/>
         public abstract TopDocs SearchNearestVectors(
-            String field, float[] target, int k, Bits acceptDocs, int visitedLimit);
+            string field, float[] target, int k, Bits acceptDocs, int visitedLimit);
 
         /**
          * Get the {@link FieldInfos} describing all fields in this reader.
@@ -306,7 +311,7 @@ instances are completely thread safe, meaning multiple
          * null if there are no point fields.
          */
         /// <exception cref="IOException"/>
-        public abstract PointValues GetPointValues(String field);
+        public abstract PointValues GetPointValues(string field);
 
         /**
          * Checks consistency of this reader.
@@ -327,7 +332,3 @@ instances are completely thread safe, meaning multiple
         public abstract LeafMetaData GetMetaData();
     }
 }
-
-
-
-

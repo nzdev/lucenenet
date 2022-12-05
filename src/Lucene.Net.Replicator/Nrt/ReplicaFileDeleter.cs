@@ -26,9 +26,6 @@ using JCG = J2N.Collections.Generic;
 using Directory = Lucene.Net.Store.Directory;
 namespace Lucene.Net.Replicator.Nrt
 {
-
-
-
     // TODO: can we factor/share with IFD: this is doing exactly the same thing, but on the replica side
 
     class ReplicaFileDeleter
