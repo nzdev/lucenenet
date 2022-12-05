@@ -49,7 +49,7 @@ namespace Lucene.Net.Replicator.Nrt
             this.buffer = buffer;
             // TODO: pass correct IOCtx, e.g. seg total size
             output = dest.CreateTempOutput(name, "copy", IOContext.DEFAULT);
-            tmpName = output.GetName();
+            tmpName = output.Name;
 
             // last 8 bytes are checksum, which we write ourselves after copying all bytes and confirming
             // checksum:
