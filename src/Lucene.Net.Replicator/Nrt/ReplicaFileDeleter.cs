@@ -72,14 +72,14 @@ namespace Lucene.Net.Replicator.Nrt
                         Debugging.Assert(SlowFileExists(dir, fileName), "file " + fileName + " does not exist!");
                     }
 
-                    int curCount = refCounts[fileName];
+                    int? curCount = refCounts[fileName];
                     if (curCount == null)
                     {
                         refCounts.Add(fileName, 1);
                     }
                     else
                     {
-                        refCounts.Add(fileName, curCount.IntValue() + 1);
+                        refCounts.Add(fileName, curCount.Value + 1);
                     }
                 }
             }
@@ -113,7 +113,7 @@ namespace Lucene.Net.Replicator.Nrt
                     }
                     else
                     {
-                        refCounts.Add(fileName, curCount.intValue() - 1);
+                        refCounts.Add(fileName, curCount.Value - 1);
                     }
                 }
 
@@ -215,7 +215,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 if (refCounts.ContainsKey(fileName) == false)
                 {
-                    return refCounts[fileName];
+                    return refCounts[fileName] ?? default; // LUCENENET
                 }
             }
             finally
