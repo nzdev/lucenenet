@@ -53,7 +53,7 @@ namespace Lucene.Net.Replicator.Nrt
 
             // last 8 bytes are checksum, which we write ourselves after copying all bytes and confirming
             // checksum:
-            bytesToCopy = metaData.length - Long.BYTES;
+            bytesToCopy = metaData.length - Extensions.LongBytes();
 
             if (Node.VERBOSE_FILES)
             {
@@ -133,17 +133,17 @@ namespace Lucene.Net.Replicator.Nrt
                         throw new IOException("file " + name + ": checksum mismatch after file copy");
                     }
                     CodecUtil.WriteBELong(output, checksum);
-                    bytesCopied += Long.BYTES;
+                    bytesCopied += Extensions.LongBytes();
                     Close();
 
                     if (Node.VERBOSE_FILES)
                     {
                         dest.Message(
-                            String.Format(
+                            string.Format(
                                 "file %s: done copying [%s, %.3fms]",
                                 name,
                                 Node.BytesToString(metaData.length),
-                                (Time.NanoTime() - copyStartNS) / (double)TimeUnit.MILLISECONDS.toNanos(1)));
+                                (Time.NanoTime() - copyStartNS) / (double)Time.NanoTime()));
                     }
 
                     return true;

@@ -34,5 +34,11 @@ namespace Lucene.Net.Replicator.Nrt
             //TimeUnit.SECONDS.toNanos(1)
             throw new NotImplementedException();
         }
+
+        internal static int LongBytes()
+        {
+            //Long.BYTES
+            return 8;
+        }
     }
 }

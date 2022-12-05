@@ -320,7 +320,7 @@ namespace Lucene.Net.Codecs
         ///  Retrieves the full footer from the provided <see cref="IndexInput"/>.
         ///  This throws <see cref="CorruptIndexException"/> if this file does not have a valid footer.
         /// </summary>
-        /// /// <exception cref="IOException"/>
+        /// <exception cref="IOException"/>
         public static byte[] ReadFooter(IndexInput input)
         {
             if (input.Length < FooterLength())
@@ -338,6 +338,37 @@ namespace Lucene.Net.Codecs
             byte[] bytes = new byte[FooterLength()];
             input.ReadBytes(bytes, 0, bytes.Length);
             return bytes;
+        }
+
+        /// <summary>
+        /// Read long value from header / footer with big endian order 
+        /// </summary>
+        /// <exception cref="IOException"/>
+        public static long ReadBELong(DataInput input)
+        {
+            return (((long)ReadBEInt(input)) << 32) | (ReadBEInt(input) & 0xFFFFFFFFL);
+        }
+
+        /// <summary>
+        /// write int value on header / footer with big endian order
+        /// </summary>
+        /// <exception cref="IOException"/>
+        public static void WriteBEInt(DataOutput output, int i)
+        {
+            output.WriteByte((byte)(i >> 24));
+            output.WriteByte((byte)(i >> 16));
+            output.WriteByte((byte)(i >> 8));
+            output.WriteByte((byte)i);
+        }
+
+        /// <summary>
+        /// write long value on header / footer with big endian order
+        /// </summary>
+        /// <exception cref="IOException"/>
+        public static void WriteBELong(DataOutput output, long l)
+        {
+            WriteBEInt(output, (int)(l >> 32));
+            WriteBEInt(output, (int)l);
         }
     }
 }

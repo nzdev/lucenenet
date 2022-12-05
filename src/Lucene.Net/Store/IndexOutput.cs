@@ -31,6 +31,38 @@ namespace Lucene.Net.Store
     /// <seealso cref="IndexInput"/>
     public abstract class IndexOutput : DataOutput, IDisposable
     {
+        ///<summary>
+        /// Full description of this output, e.g. which class such as {@code FSIndexOutput}, and the full
+        /// path to the file
+        /// </summary>
+        private readonly string resourceDescription;
+
+        ///<summary>
+        /// Just the name part from {@code resourceDescription}
+        /// </summary>
+        private readonly string name;
+
+        ///<summary>
+        /// Sole constructor. resourceDescription should be non-null, opaque string describing this
+        /// resource; it's returned from {@link #toString}.
+        /// </summary>
+        protected IndexOutput(string resourceDescription, string name)
+        {
+            if (resourceDescription == null)
+            {
+                throw new IllegalArgumentException("resourceDescription must not be null");
+            }
+            this.resourceDescription = resourceDescription;
+            this.name = name;
+        }
+
+        // TODO: can we somehow use this as the default resource description or something?
+        /// <summary>
+        /// Returns the name used to create this {@code IndexOutput}. This is especially useful when using
+        /// {@link Directory#createTempOutput}.
+        /// </summary>
+        public string Name => name;
+
         /// <summary>
         /// Forces any buffered output to be written. </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -67,6 +99,11 @@ namespace Lucene.Net.Store
         /// <summary>
         /// Returns the current checksum of bytes written so far </summary>
         public abstract long Checksum { get; }
+
+        public override string ToString()
+        {
+            return resourceDescription;
+        }
 
         /// <summary>
         /// Gets or Sets the file length. By default, this property's setter does

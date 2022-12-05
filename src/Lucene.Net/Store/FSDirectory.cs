@@ -479,8 +479,8 @@ namespace Lucene.Net.Store
             private volatile bool isOpen; // remember if the file is open, so that we don't try to close it more than once
             private readonly CRC32 crc = new CRC32();
 
-            public FSIndexOutput(FSDirectory parent, string name)
-                : base(CHUNK_SIZE, null)
+            public FSIndexOutput(FSDirectory parent, string name, string resourceDescription, string rname)
+                : base(CHUNK_SIZE, null, resourceDescription, rname)
             {
                 this.parent = parent;
                 this.name = name;

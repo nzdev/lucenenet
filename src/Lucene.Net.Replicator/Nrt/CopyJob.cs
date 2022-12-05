@@ -31,12 +31,13 @@ using Lucene.Net.Index;
 
 namespace Lucene.Net.Replicator.Nrt
 {
-    /**
-     * Handles copying one set of files, e.g. all files for a new NRT point, or files for pre-copying a
-     * merged segment. This notifies the caller via OnceDone when the job finishes or failed.
-     *
-     * @lucene.experimental
-     */
+    /// <summary>
+    /// Handles copying one set of files, e.g. all files for a new NRT point, or files for pre-copying a
+    /// merged segment. This notifies the caller via OnceDone when the job finishes or failed.
+    /// </summary>
+    /// <remarks>
+    /// @lucene.experimental
+    /// </remarks>
     public abstract class CopyJob : IComparable<CopyJob>
     {
         private static readonly AtomicInt64 counter = new AtomicInt64();
@@ -359,5 +360,6 @@ namespace Lucene.Net.Replicator.Nrt
         public abstract CopyState GetCopyState();
 
         public abstract long GetTotalBytesCopied();
+        public abstract int CompareTo(CopyJob other);
     }
 }
