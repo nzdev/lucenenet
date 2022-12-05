@@ -21,12 +21,13 @@ using System.IO;
 namespace Lucene.Net.Replicator.Nrt
 {
 
-    /**
-     * Should be thrown by subclasses of {@link PrimaryNode} and {@link ReplicaNode} if a non-fatal
-     * exception occurred while communicating between nodes.
-     *
-     * @lucene.experimental
-     */
+    /// <summary>
+    /// Should be thrown by subclasses of {@link PrimaryNode} and {@link ReplicaNode} if a non-fatal
+    /// exception occurred while communicating between nodes.
+    /// </summary>
+    /// <remarks>
+    /// @lucene.experimental
+    /// </remarks>
     public class NodeCommunicationException : IOException, IRuntimeException
     {
         protected NodeCommunicationException(string when, Exception cause) : base(when, cause)

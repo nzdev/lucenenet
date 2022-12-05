@@ -121,6 +121,7 @@ namespace Lucene.Net.Replicator.Nrt
             return SearcherManager.GetSearcher(searcherFactory, r, old.GetIndexReader());
         }
 
+
         private void AddReaderClosedListener(IndexReader r)
         {
             IndexReader.CacheHelper cacheHelper = r.GetReaderCacheHelper();

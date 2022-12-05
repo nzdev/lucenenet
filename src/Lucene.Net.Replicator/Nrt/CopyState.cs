@@ -37,7 +37,7 @@ namespace Lucene.Net.Replicator.Nrt
         public readonly long version;
         public readonly long gen;
         public readonly byte[] infosBytes;
-        public readonly IReadOnlySet<string> completedMergeFiles;
+        public readonly ISet<string> completedMergeFiles;//IReadOnlySet<string>
         public readonly long primaryGen;
 
         /// <remarks>
@@ -52,7 +52,7 @@ namespace Lucene.Net.Replicator.Nrt
             long version,
             long gen,
             byte[] infosBytes,
-            HashSet<string> completedMergeFiles,
+            ISet<string> completedMergeFiles,
             long primaryGen,
             SegmentInfos infos)
         {

@@ -28,6 +28,7 @@ using System.Collections.Generic;
 using System.IO;
 using Lucene.Net.Diagnostics;
 using Lucene.Net.Index;
+using J2N.Collections.Generic.Extensions;
 
 namespace Lucene.Net.Replicator.Nrt
 {
@@ -269,11 +270,11 @@ namespace Lucene.Net.Replicator.Nrt
 
                 // Delete all temp files the old job wrote but we don't need:
                 dest.Message("xfer: now delete old temp files: " + prevJob.copiedFiles.Values);
-                IOUtils.DeleteFilesIgnoringExceptions(dest.GetDirectory(), prevJob.copiedFiles.Values);
+                IOUtils.DeleteFilesIgnoringExceptions(dest.GetDirectory(), prevJob.copiedFiles.Values.ToArray());
 
                 if (prevJob.current != null)
                 {
-                    IOUtils.CloseWhileHandlingException(prevJob.current);
+                    IOUtils.DisposeWhileHandlingException(prevJob.current);
                     if (Node.VERBOSE_FILES)
                     {
                         dest.Message("remove partial file " + prevJob.current.tmpName);
@@ -328,11 +329,11 @@ namespace Lucene.Net.Replicator.Nrt
             this.cancelReason = reason;
 
             // Delete all temp files we wrote:
-            IOUtils.DeleteFilesIgnoringExceptions(dest.GetDirectory(), copiedFiles.Values);
+            IOUtils.DeleteFilesIgnoringExceptions(dest.GetDirectory(), copiedFiles.Values.ToArray());
 
             if (current != null)
             {
-                IOUtils.CloseWhileHandlingException(current);
+                IOUtils.DisposeWhileHandlingException(current);
                 if (Node.VERBOSE_FILES)
                 {
                     dest.Message("remove partial file " + current.tmpName);

@@ -90,7 +90,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 Message("IWC:\n" + writer.Config);
                 Message("dir:\n" + writer.Directory);
-                Message("commitData: " + writer.getLiveCommitData());
+                Message("commitData: " + writer.GetLiveCommitData());
 
                 // Record our primaryGen in the userData, and set initial version to 0:
                 IDictionary<string, string> commitData = new Dictionary<string, string>();
@@ -484,7 +484,9 @@ namespace Lucene.Net.Replicator.Nrt
             state = "closed";
         }
 
-        /** Called when a merge has finished, but before IW switches to the merged segment */
+        /// <summary>
+        /// Called when a merge has finished, but before IW switches to the merged segment
+        /// </summary>
         /// <exception cref="IOException"/>
         protected abstract void PreCopyMergedSegmentFiles(
             SegmentCommitInfo info, IDictionary<string, FileMetaData> files);

@@ -270,7 +270,7 @@ namespace Lucene.Net.Replicator.Nrt
                             // If e.g. virus checker blocks us from deleting, we absolutely cannot start this node
                             // else there is a definite window during
                             // which if we carsh, we cause corruption:
-                            throw new RuntimeException(
+                            throw  RuntimeException.Create(
                                 "replica cannot start: existing segments file="
                                     + segmentsFileName
                                     + " must be removed in order to start, but the file delete failed");
