@@ -53,7 +53,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// </remarks>
         public readonly bool highPriority;
 
-        public readonly OnceDone onceDone;
+        public readonly IOnceDone onceDone;
 
         public readonly long startNS = Time.NanoTime();
         public readonly string reason;
@@ -86,7 +86,7 @@ namespace Lucene.Net.Replicator.Nrt
         IDictionary<String, FileMetaData> files,
         ReplicaNode dest,
         bool highPriority,
-        OnceDone onceDone)
+        IOnceDone onceDone)
         {
             this.reason = reason;
             this.files = files;
@@ -109,13 +109,13 @@ namespace Lucene.Net.Replicator.Nrt
         /// <summary>
         /// Callback invoked by CopyJob once all files have (finally) finished copying
         /// </summary>
-        public interface OnceDone
+        public interface IOnceDone
         {
             /// <exception cref="IOException"/>
             public void Run(CopyJob job);
         }
 
-        public class OnceDoneAction : OnceDone
+        public class OnceDoneAction : IOnceDone
         {
             private readonly Action<CopyJob> action;
 
@@ -343,19 +343,28 @@ namespace Lucene.Net.Replicator.Nrt
             }
         }
 
-        /** Return true if this job is trying to copy any of the same files as the other job */
+        /// <summary>
+        /// Return true if this job is trying to copy any of the same files as the other job
+        /// </summary>
         public abstract bool Conflicts(CopyJob other);
 
-        /** Renames all copied (tmp) files to their true file names */
+        /// <summary>
+        /// Renames all copied (tmp) files to their true file names
+        /// </summary>
         /// <exception cref="IOException"/>
         public abstract void Finish();
 
         public abstract bool GetFailed();
 
-        /** Returns only those file names (a subset of {@link #getFileNames}) that need to be copied */
+        
+        /// <summary>
+        /// Returns only those file names (a subset of {@link #getFileNames}) that need to be copied
+        /// </summary>
         public abstract ISet<string> GetFileNamesToCopy();
 
-        /** Returns all file names referenced in this copy job */
+        /// <summary>
+        /// Returns all file names referenced in this copy job
+        /// </summary>
         public abstract ISet<string> GetFileNames();
 
         public abstract CopyState GetCopyState();

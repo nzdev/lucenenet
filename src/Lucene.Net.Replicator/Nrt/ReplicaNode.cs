@@ -620,7 +620,7 @@ namespace Lucene.Net.Replicator.Nrt
             IDictionary<String, FileMetaData> files,
             IDictionary<String, FileMetaData> prevFiles,
             bool highPriority,
-            CopyJob.OnceDone onceDone);
+            CopyJob.IOnceDone onceDone);
 
         /** Runs this job async'd */
         protected abstract void Launch(CopyJob job);

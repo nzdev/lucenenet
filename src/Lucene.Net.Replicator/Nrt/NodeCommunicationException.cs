@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+using Lucene.Net.Diagnostics;
 using System;
 using System.IO;
 
@@ -32,10 +33,10 @@ namespace Lucene.Net.Replicator.Nrt
     {
         protected NodeCommunicationException(string when, Exception cause) : base(when, cause)
         {
-            this(when);
-            super(when);
-            assert cause != null;
-            initCause(cause);
+            if (Debugging.AssertsEnabled)
+            {
+                Debugging.Assert(cause != null);
+            }
         }
     }
 }

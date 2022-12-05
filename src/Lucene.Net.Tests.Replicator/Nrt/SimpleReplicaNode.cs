@@ -123,7 +123,7 @@ jobs.start();
       Map<String, FileMetaData> files,
       Map<String, FileMetaData> prevFiles,
       boolean highPriority,
-      CopyJob.OnceDone onceDone)
+      CopyJob.IOnceDone onceDone)
       throws IOException
 {
     Connection c;

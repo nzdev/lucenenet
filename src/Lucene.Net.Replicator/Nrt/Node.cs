@@ -43,19 +43,21 @@ namespace Lucene.Net.Replicator.Nrt
 
         // Keys we store into IndexWriter's commit user data:
 
-        /**
-         * Key to store the primary gen in the commit data, which increments every time we promote a new
-         * primary, so replicas can detect when the primary they were talking to is changed
-         */
-        public static String PRIMARY_GEN_KEY = "__primaryGen";
+        /// <summary>
+        /// Key to store the primary gen in the commit data, which increments every time we promote a new
+        /// primary, so replicas can detect when the primary they were talking to is changed
+        /// </summary>
+        public static string PRIMARY_GEN_KEY = "__primaryGen";
 
-        /**
-         * Key to store the version in the commit data, which increments every time we open a new NRT
-         * reader
-         */
-        public static String VERSION_KEY = "__version";
+        /// <summary>
+        /// Key to store the version in the commit data, which increments every time we open a new NRT
+        /// reader
+        /// </summary>
+        public static string VERSION_KEY = "__version";
 
-        /** Compact ordinal for this node */
+        /// <summary>
+        /// Compact ordinal for this node
+        /// </summary>
         protected readonly int id;
 
         protected readonly Directory dir;
@@ -66,22 +68,28 @@ namespace Lucene.Net.Replicator.Nrt
         // across the wire (replica):
         protected ReferenceManager<IndexSearcher> mgr;
 
-        /**
-         * Startup time of original test, carefully propogated to all nodes to produce consistent "seconds
-         * since start time" in messages
-         */
+        /// <summary>
+        /// Startup time of original test, carefully propogated to all nodes to produce consistent "seconds
+        /// since start time" in messages
+        /// </summary>
         public static long globalStartNS;
 
-        /** When this node was started */
+        /// <summary>
+        /// When this node was started
+        /// </summary>
         public static readonly long localStartNS = Time.NanoTime();
 
-        /** For debug logging */
+        /// <summary>
+        /// For debug logging
+        /// </summary>
         protected readonly TextWriter TextWriter;
 
         // public static final long globalStartNS;
 
-        // For debugging:
-        protected volatile String state = "idle";
+        /// <summary>
+        /// For debugging:
+        /// </summary>
+        protected volatile string state = "idle";
         
         /// <summary>
         /// File metadata for last sync that succeeded; we use this as a cache

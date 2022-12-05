@@ -2,11 +2,7 @@
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Directory = Lucene.Net.Store.Directory;
 
 namespace Lucene.Net.Replicator.Nrt
