@@ -27,6 +27,7 @@ using Lucene.Net.Util;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Lucene.Net.Replicator.Nrt
 {
@@ -190,7 +191,7 @@ namespace Lucene.Net.Replicator.Nrt
             }
             else
             {
-                Message("top: no changes in flushAndRefresh; still version=" + curInfos.getVersion());
+                Message("top: no changes in flushAndRefresh; still version=" + curInfos.Version);
             }
             return result;
         }
@@ -258,7 +259,7 @@ namespace Lucene.Net.Replicator.Nrt
             // on xlog replay we are replaying more ops than necessary.
             commitData.Add(VERSION_KEY, Long.toString(copyState.version));
             Message("top: commit commitData=" + commitData);
-            writer.SetLiveCommitData(commitData.entrySet(), false);
+            writer.SetLiveCommitData(commitData.AsEnumerable(), false);
             writer.Commit();
         }
 

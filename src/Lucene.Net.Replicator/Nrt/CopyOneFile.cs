@@ -25,14 +25,16 @@ namespace Lucene.Net.Replicator.Nrt
 {
 
 
-    /** Copies one file from an incoming DataInput to a dest filename in a local Directory */
+    /// <summary>
+    /// Copies one file from an incoming DataInput to a dest filename in a local Directory
+    /// </summary>
     public class CopyOneFile : IDisposable
     {
         private readonly DataInput input;
         private readonly IndexOutput output;
         private readonly ReplicaNode dest;
-        public readonly String name;
-        public readonly String tmpName;
+        public readonly string name;
+        public readonly string tmpName;
         public readonly FileMetaData metaData;
         public readonly long bytesToCopy;
         private readonly long copyStartNS;
@@ -41,7 +43,7 @@ namespace Lucene.Net.Replicator.Nrt
         private long bytesCopied;
 
         /// <exception cref="IOException"/>
-        public CopyOneFile(DataInput input, ReplicaNode dest, String name, FileMetaData metaData, byte[] buffer)
+        public CopyOneFile(DataInput input, ReplicaNode dest, string name, FileMetaData metaData, byte[] buffer)
         {
             this.input = input;
             this.name = name;
@@ -85,6 +87,7 @@ namespace Lucene.Net.Replicator.Nrt
             this.copyStartNS = other.copyStartNS;
             this.buffer = other.buffer;
         }
+
         /// <exception cref="IOException"/>
         public void Close()
         {
@@ -92,7 +95,9 @@ namespace Lucene.Net.Replicator.Nrt
             dest.FinishCopyFile(name);
         }
 
-        /** Copy another chunk of bytes, returning true once the copy is done */
+        /// <summary>
+        /// Copy another chunk of bytes, returning true once the copy is done
+        /// </summary>
         /// <exception cref="IOException"/>
         public bool Visit()
         {

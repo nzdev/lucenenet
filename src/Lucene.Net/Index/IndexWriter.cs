@@ -954,7 +954,7 @@ namespace Lucene.Net.Index
 
                 rollbackSegments = segmentInfos.CreateBackupSegmentInfos();
 
-                commitUserData = new Dictionary<string,string>(segmentInfos.GetUserData()).entrySet();
+                commitUserData = new Dictionary<string,string>(segmentInfos.UserData.GetUserData()).entrySet();
 
                 // start with previous field numbers, but new FieldInfos
                 globalFieldNumberMap = FieldNumberMap;

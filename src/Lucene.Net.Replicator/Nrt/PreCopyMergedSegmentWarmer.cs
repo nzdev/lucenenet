@@ -28,24 +28,20 @@ using J2N;
 using J2N.Collections.Generic;
 using Lucene.Net.Diagnostics;
 using Lucene.Net.Index;
-using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using static Lucene.Net.Index.IndexWriter;
 
 namespace Lucene.Net.Replicator.Nrt
 {
 
-
-    /**
-     * A merged segment warmer that pre-copies the merged segment out to replicas before primary cuts
-     * over to the merged segment. This ensures that NRT reopen time on replicas is only in proportion
-     * to flushed segment sizes, not merged segments.
-     */
-
-
     // TODO: or ... replica node can do merging locally?  tricky to keep things in sync, when one node
     // merges more slowly than others...
-
+    /// <summary>
+    /// A merged segment warmer that pre-copies the merged segment out to replicas before primary cuts
+    ///  over to the merged segment. This ensures that NRT reopen time on replicas is only in proportion
+    ///  to flushed segment sizes, not merged segments.
+    /// </summary>
     class PreCopyMergedSegmentWarmer : IndexReaderWarmer
     {
 
@@ -79,7 +75,7 @@ namespace Lucene.Net.Replicator.Nrt
                 string.Format(
                     "top: done warm merge " + info + ": took %.3f sec, %.1f MB",
                     (Time.NanoTime() - startNS) / (double)Extensions.TimeUnitSecondsToNanos(1),
-                    info.sizeInBytes() / 1024. / 1024.));
+                    info.GetSizeInBytes() / 1024.0 / 1024.0));
             primary.finishedMergedFiles.addAll(filesMetaData.Keys);
         }
     }

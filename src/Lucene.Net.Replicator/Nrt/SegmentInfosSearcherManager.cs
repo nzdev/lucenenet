@@ -21,6 +21,7 @@ using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Support.Threading;
 using System.Collections.Generic;
+using System.IO;
 
 namespace Lucene.Net.Replicator.Nrt
 {

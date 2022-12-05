@@ -1774,8 +1774,7 @@ namespace Lucene.Net.Index
             throw new Error("Unreachable code");
         }
         /// <exception cref="IOException"/>
-        private static void ParseSegmentInfos(
-    Directory directory, DataInput input, SegmentInfos infos, int format)
+        private static void ParseSegmentInfos(Directory directory, DataInput input, SegmentInfos infos, int format)
         {
             infos.version = CodecUtil.ReadBELong(input);
             // System.out.println("READ sis version=" + infos.version);
