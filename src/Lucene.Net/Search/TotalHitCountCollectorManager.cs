@@ -28,13 +28,14 @@ namespace Lucene.Net.Search
     /// </summary>
     public class TotalHitCountCollectorManager : CollectorManager<TotalHitCountCollector, int>
     {
-
+        /// <inheritdoc/>
         /// <exception cref="IOException"/>
         public TotalHitCountCollector NewCollector()
         {
             return new TotalHitCountCollector();
         }
 
+        /// <inheritdoc/>
         /// <exception cref="IOException"/>
         public int Reduce(ICollection<TotalHitCountCollector> collectors)
         {
