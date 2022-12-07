@@ -448,7 +448,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                     try
                     {
-                        Wait(10);
+                        UninterruptableMonitor.Wait(this,10);
                     }
                     catch (InterruptedException ie)
                     {
