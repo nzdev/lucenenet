@@ -1,4 +1,4 @@
-using Lucene.Net.Diagnostics;
+﻿using Lucene.Net.Diagnostics;
 using System;
 using System.IO;
 
@@ -91,7 +91,7 @@ namespace Lucene.Net.Search
                 searcherFactory = new SearcherFactory();
             }
             this.searcherFactory = searcherFactory;
-            Current = GetSearcher(searcherFactory, DirectoryReader.Open(writer, applyAllDeletes));
+            Current = GetSearcher(searcherFactory, DirectoryReader.Open(writer, applyAllDeletes),null);
         }
 
         /// <summary>
@@ -109,7 +109,7 @@ namespace Lucene.Net.Search
                 searcherFactory = new SearcherFactory();
             }
             this.searcherFactory = searcherFactory;
-            Current = GetSearcher(searcherFactory, DirectoryReader.Open(dir));
+            Current = GetSearcher(searcherFactory, DirectoryReader.Open(dir),null);
         }
 
         protected override void DecRef(IndexSearcher reference)
@@ -128,7 +128,7 @@ namespace Lucene.Net.Search
             }
             else
             {
-                return GetSearcher(searcherFactory, newReader);
+                return GetSearcher(searcherFactory, newReader,r);
             }
         }
 
@@ -167,13 +167,13 @@ namespace Lucene.Net.Search
         /// <see cref="SearcherFactory"/>.  NOTE: this decRefs incoming reader
         /// on throwing an exception.
         /// </summary>
-        public static IndexSearcher GetSearcher(SearcherFactory searcherFactory, IndexReader reader)
+        public static IndexSearcher GetSearcher(SearcherFactory searcherFactory, IndexReader reader, IndexReader previousReader)
         {
             bool success = false;
             IndexSearcher searcher;
             try
             {
-                searcher = searcherFactory.NewSearcher(reader);
+                searcher = searcherFactory.NewSearcher(reader, previousReader);
                 if (searcher.IndexReader != reader)
                 {
                     throw IllegalStateException.Create("SearcherFactory must wrap exactly the provided reader (got " + searcher.IndexReader + " but expected " + reader + ")");

@@ -1,4 +1,4 @@
-namespace Lucene.Net.Search
+﻿namespace Lucene.Net.Search
 {
     /*
      * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -47,7 +47,12 @@ namespace Lucene.Net.Search
         /// <summary>
         /// Returns a new <see cref="IndexSearcher"/> over the given reader.
         /// </summary>
-        public virtual IndexSearcher NewSearcher(IndexReader reader)
+        /// <param name="reader">reader the reader to create a new searcher for</param>
+        /// <param name="previousReader"> previousReader the reader previously used to create a new searcher.
+        /// This can be <code>null</code> if unknown or if the given reader is the initially opened reader.
+        /// If this reader is non-null it can be used to find newly opened segments compared to the new reader
+        /// to warm the searcher up before returning.</param>
+        public virtual IndexSearcher NewSearcher(IndexReader reader, IndexReader previousReader)
         {
             return new IndexSearcher(reader);
         }
