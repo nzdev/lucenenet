@@ -561,12 +561,12 @@ namespace Lucene.Net.Store
         {
             EnsureAssumptions(buffers);
 
-            if (buffers.Size() == 1)
+            if (buffers.Count == 1)
             {
-                ByteBuffer cloned = buffers.get(0).asReadOnlyBuffer().order(ByteOrder.LittleEndian);
-                ;
-                cloned.Position(Math.toIntExact(cloned.Position + offset));
-                cloned.Limit(Math.toIntExact(cloned.Position + length));
+                ByteBuffer cloned = buffers[0].AsReadOnlyBuffer().SetOrder(ByteOrder.LittleEndian);
+
+                cloned.SetPosition(Math.toIntExact(cloned.Position + offset));
+                cloned.SetLimit(Math.toIntExact(cloned.Position + length));
                 return Arrays.asList(cloned);
             }
             else
@@ -591,7 +591,7 @@ namespace Lucene.Net.Store
 
                 if (endOffset == 0)
                 {
-                    cloned.add(ByteBuffer.Allocate(0).Order(ByteOrder.LittleEndian));
+                    cloned.Add(ByteBuffer.Allocate(0).Order(ByteOrder.LittleEndian));
                 }
 
                 cloned.get(0).position(Math.toIntExact(absStart & blockMask));
