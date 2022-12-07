@@ -145,7 +145,7 @@ namespace Lucene.Net.Store
                 {
                     ByteBuffer block = blocks[BlockIndex(pos)].Duplicate();
                     int blockOffset = BlockOffset(pos);
-                    block.SetPosition(BlockOffset);
+                    block.SetPosition(blockOffset);
                     int chunk = Math.Min(len, block.Remaining);
                     if (chunk == 0)
                     {
@@ -198,7 +198,7 @@ namespace Lucene.Net.Store
             }
             catch (Exception e) when (e is BufferUnderflowException || e is ArrayIndexOutOfBoundsException)
             {
-                if (pos >= size())
+                if (pos >= Size())
                 {
                     throw EOFException.Create();
                 }
@@ -212,10 +212,10 @@ namespace Lucene.Net.Store
         /// <exception cref="IOException"/>
         public override short ReadShort()
         {
-            int blockOffset = blockOffset(pos);
+            int blockOffset = BlockOffset(pos);
             if (blockOffset + SHORT_BYTES <= blockMask)
             {
-                short v = blocks[blockIndex(pos)].getShort(blockOffset);
+                short v = blocks[BlockIndex(pos)].GetInt16(blockOffset);
                 pos += SHORT_BYTES;
                 return v;
             }
@@ -245,23 +245,23 @@ namespace Lucene.Net.Store
         /// <exception cref="IOException"/>
         public long ReadLong()
         {
-            int blockOffset = blockOffset(pos);
+            int blockOffset = BlockOffset(pos);
             if (blockOffset + LONG_BYTES <= blockMask)
             {
-                long v = blocks[blockIndex(pos)].getLong(blockOffset);
+                long v = blocks[BlockIndex(pos)].GetInt64(blockOffset);
                 pos += LONG_BYTES;
                 return v;
             }
             else
             {
-                return super.readLong();
+                return base.ReadLong();
             }
         }
 
         public override byte ReadByte(long pos)
         {
             pos += offset;
-            return blocks[blockIndex(pos)].get(blockOffset(pos));
+            return blocks[BlockIndex(pos)].Get(BlockOffset(pos));
         }
 
         public override short ReadShort(long pos)
@@ -284,7 +284,7 @@ namespace Lucene.Net.Store
             int blockOffset = BlockOffset(absPos);
             if (blockOffset + INT32_BYTES <= blockMask)
             {
-                return blocks[BlockIndex(absPos)].GetInt(blockOffset);
+                return blocks[BlockIndex(absPos)].GetInt32(blockOffset);
             }
             else
             {
@@ -301,7 +301,7 @@ namespace Lucene.Net.Store
             int blockOffset = BlockOffset(absPos);
             if (blockOffset + LONG_BYTES <= blockMask)
             {
-                return blocks[BlockIndex(absPos)].getLong(blockOffset);
+                return blocks[BlockIndex(absPos)].GetInt64(blockOffset);
             }
             else
             {
@@ -330,16 +330,16 @@ namespace Lucene.Net.Store
             {
                 while (len > 0)
                 {
-                    SingleBuffer floatBuffer = getFloatBuffer(pos);
-                    floatBuffer.position(blockOffset(pos) >> 2);
-                    int chunk = Math.min(len, floatBuffer.remaining());
+                    SingleBuffer floatBuffer = GetFloatBuffer(pos);
+                    floatBuffer.SetPosition(BlockOffset(pos) >> 2);
+                    int chunk = Math.Min(len, floatBuffer.Remaining);
                     if (chunk == 0)
                     {
                         // read a single float spanning the boundary between two buffers
-                        arr[off] = Float.intBitsToFloat(readInt(pos - offset));
+                        arr[off] = Float.intBitsToFloat(ReadInt(pos - offset));
                         off++;
                         len--;
-                        pos += Float.BYTES;
+                        pos += FLOAT_BYTES;
                         continue;
                     }
 
@@ -353,7 +353,7 @@ namespace Lucene.Net.Store
             }
             catch (Exception e) when (e is BufferUnderflowException || e is IndexOutOfBoundsException)
             {
-                if (pos - offset + Float.BYTES > size())
+                if (pos - offset + FLOAT_BYTES > Size())
                 {
                     throw EOFException.Create();
                 }
@@ -371,9 +371,9 @@ namespace Lucene.Net.Store
             {
                 while (len > 0)
                 {
-                    Int64Buffer longBuffer = getLongBuffer(pos);
-                    longBuffer.position(blockOffset(pos) >> 3);
-                    int chunk = Math.min(len, longBuffer.remaining());
+                    Int64Buffer longBuffer = GetLongBuffer(pos);
+                    longBuffer.SetPosition(BlockOffset(pos) >> 3);
+                    int chunk = Math.Min(len, longBuffer.Remaining);
                     if (chunk == 0)
                     {
                         // read a single long spanning the boundary between two buffers
@@ -386,7 +386,7 @@ namespace Lucene.Net.Store
 
                     // Update pos early on for EOF detection, then try to get buffer content.
                     pos += chunk << 3;
-                    longBuffer.get(arr, off, chunk);
+                    longBuffer.Get(arr, off, chunk);
 
                     len -= chunk;
                     off += chunk;
@@ -394,7 +394,7 @@ namespace Lucene.Net.Store
             }
             catch (Exception e) when (e is BufferUnderflowException || e is IndexOutOfBoundsException)
             {
-                if (pos - offset + LONG_BYTES > size())
+                if (pos - offset + LONG_BYTES > Size())
                 {
                     throw EOFException.Create();
                 }
@@ -408,14 +408,14 @@ namespace Lucene.Net.Store
         private SingleBuffer GetFloatBuffer(long pos)
         {
             // This creates a separate SingleBuffer for each observed combination of ByteBuffer/alignment
-            int bufferIndex = blockIndex(pos);
+            int bufferIndex = BlockIndex(pos);
             int alignment = (int)pos & 0x3;
-            int floatBufferIndex = bufferIndex * Float.BYTES + alignment;
+            int floatBufferIndex = bufferIndex * FLOAT_BYTES + alignment;
             if (floatBuffers[floatBufferIndex] == null)
             {
-                ByteBuffer dup = blocks[bufferIndex].duplicate();
-                dup.position(alignment);
-                floatBuffers[floatBufferIndex] = dup.order(ByteOrder.LittleEndian).asFloatBuffer();
+                ByteBuffer dup = blocks[bufferIndex].Duplicate();
+                dup.SetPosition(alignment);
+                floatBuffers[floatBufferIndex] = dup.SetOrder(ByteOrder.LittleEndian).AsSingleBuffer();
             }
             return floatBuffers[floatBufferIndex];
         }
@@ -423,14 +423,14 @@ namespace Lucene.Net.Store
         private Int64Buffer GetLongBuffer(long pos)
         {
             // This creates a separate Int64Buffer for each observed combination of ByteBuffer/alignment
-            int bufferIndex = blockIndex(pos);
+            int bufferIndex = BlockIndex(pos);
             int alignment = (int)pos & 0x7;
             int longBufferIndex = bufferIndex * LONG_BYTES + alignment;
             if (longBuffers[longBufferIndex] == null)
             {
-                ByteBuffer dup = blocks[bufferIndex].duplicate();
-                dup.position(alignment);
-                longBuffers[longBufferIndex] = dup.order(ByteOrder.LittleEndian).asLongBuffer();
+                ByteBuffer dup = blocks[bufferIndex].Duplicate();
+                dup.SetPosition(alignment);
+                longBuffers[longBufferIndex] = dup.SetOrder(ByteOrder.LittleEndian).AsInt64Buffer();
             }
             return longBuffers[longBufferIndex];
         }
@@ -439,6 +439,7 @@ namespace Lucene.Net.Store
         {
             return pos - offset;
         }
+
         /// <exception cref="EOFException"/>
         public void Seek(long position)
         {
@@ -473,7 +474,7 @@ namespace Lucene.Net.Store
                         this));
             }
 
-            return new ByteBuffersDataInput(sliceBufferList(Arrays.asList(this.blocks), offset, length));
+            return new ByteBuffersDataInput(SliceBufferList(Arrays.AsList(this.blocks), offset, length));
         }
 
         public override string ToString()
@@ -489,7 +490,7 @@ namespace Lucene.Net.Store
 
         private sealed int BlockIndex(long pos)
         {
-            return Math.toIntExact(pos >> blockBits);
+            return Convert.ToInt32(pos >> blockBits);
         }
 
         private sealed int BlockOffset(long pos)
@@ -552,7 +553,7 @@ namespace Lucene.Net.Store
         static int DetermineBlockPage(IList<ByteBuffer> buffers)
         {
             ByteBuffer first = buffers[0];
-            int blockPage = Math.toIntExact((long)first.Position + first.Remaining);
+            int blockPage = Convert.ToInt32((long)first.Position + first.Remaining);
             return blockPage;
         }
 
@@ -565,9 +566,9 @@ namespace Lucene.Net.Store
             {
                 ByteBuffer cloned = buffers[0].AsReadOnlyBuffer().SetOrder(ByteOrder.LittleEndian);
 
-                cloned.SetPosition(Math.toIntExact(cloned.Position + offset));
-                cloned.SetLimit(Math.toIntExact(cloned.Position + length));
-                return Arrays.asList(cloned);
+                cloned.SetPosition(Convert.ToInt32(cloned.Position + offset));
+                cloned.SetLimit(Convert.ToInt32(cloned.Position + length));
+                return Arrays.AsList(cloned);
             }
             else
             {
@@ -578,24 +579,22 @@ namespace Lucene.Net.Store
                 int blockBits = Integer.numberOfTrailingZeros(blockBytes);
                 long blockMask = (1L << blockBits) - 1;
 
-                int endOffset = Math.toIntExact(absEnd & blockMask);
+                int endOffset = Convert.ToInt32(absEnd & blockMask);
 
-                ArrayList<ByteBuffer> cloned =
+                IList<ByteBuffer> cloned =
                     buffers
-                        .subList(
-                            Math.toIntExact(absStart / blockBytes),
-                            Math.toIntExact(absEnd / blockBytes + (endOffset == 0 ? 0 : 1)))
-                        .stream()
-                        .map(buf->buf.asReadOnlyBuffer().order(ByteOrder.LittleEndian))
-                        .collect(Collectors.toCollection(ArrayList::new));
+                    .Skip(Convert.ToInt32(absStart / blockBytes)) //startIndex  check for off by one
+                    .Take(Convert.ToInt32(absEnd / blockBytes + (endOffset == 0 ? 0 : 1))) // endindex check for off by one
+                    .Select(x => x.AsReadOnlyBuffer().SetOrder(ByteOrder.LittleEndian))
+                    .ToList();
 
                 if (endOffset == 0)
                 {
-                    cloned.Add(ByteBuffer.Allocate(0).Order(ByteOrder.LittleEndian));
+                    cloned.Add(ByteBuffer.Allocate(0).SetOrder(ByteOrder.LittleEndian));
                 }
 
-                cloned.get(0).position(Math.toIntExact(absStart & blockMask));
-                cloned.get(cloned.Size() - 1).limit(endOffset);
+                cloned[0].SetPosition(Convert.ToInt32(absStart & blockMask));
+                cloned[cloned.Count - 1].SetLimit(endOffset);
                 return cloned;
             }
         }
