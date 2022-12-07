@@ -479,10 +479,10 @@ namespace Lucene.Net.Replicator.Nrt
                 }
             }
 
-            mgr.Close();
+            mgr.Dispose();
 
             writer.Rollback();
-            dir.Close();
+            dir.Dispose();
 
             state = "closed";
         }
