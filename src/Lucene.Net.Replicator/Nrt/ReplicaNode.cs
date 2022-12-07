@@ -34,6 +34,7 @@ using System.Linq;
 using Lucene.Net.Support.Threading;
 using System.Collections.ObjectModel;
 using J2N.Threading.Atomic;
+using J2N.IO;
 
 namespace Lucene.Net.Replicator.Nrt
 {
@@ -205,7 +206,7 @@ namespace Lucene.Net.Replicator.Nrt
                     Message(
                         "top: done delete unknown files on init: all files=" + Arrays.ToString(dir.ListAll()));
 
-                    string s = infos.GetUserData().get(PRIMARY_GEN_KEY);
+                    string s = infos.UserData[PRIMARY_GEN_KEY];
                     long myPrimaryGen;
                     if (s == null)
                     {
@@ -605,7 +606,7 @@ namespace Lucene.Net.Replicator.Nrt
         {
             return new BufferedChecksumIndexInput(
                 new ByteBufferIndexInput(
-                    new ByteBufferDataInput(Arrays.AsList(ByteBuffer.wrap(input))), "SegmentInfos"));
+                    new ByteBufferDataInput(Arrays.AsList(ByteBuffer.Wrap(input))), "SegmentInfos"));
         }
 
         /**
@@ -1110,12 +1111,14 @@ namespace Lucene.Net.Replicator.Nrt
             }
         }
 
-        private ConcurrentDictionary<string, bool> copying = new ConcurrentDictionary<string, bool>();
+        private ConcurrentDictionary<string, Lazy<bool>> copying = new ConcurrentDictionary<string, Lazy<bool>>();
 
         // Used only to catch bugs, ensuring a given file name is only ever being copied bye one job:
         public void StartCopyFile(string name)
         {
-            if (copying.PutIfAbsent(name, Boolean.TRUE) != null)
+            var factoryMethodCalled = false;
+            var isCopying = copying.GetOrAdd(name, l => new Lazy<bool>(() => { factoryMethodCalled = true; return true; })).Value;
+            if (!factoryMethodCalled)
             {
                 throw IllegalStateException.Create("file " + name + " is being copied in two places!");
             }
@@ -1123,7 +1126,7 @@ namespace Lucene.Net.Replicator.Nrt
 
         public void FinishCopyFile(string name)
         {
-            if (copying.Remove(name) == null)
+            if (!copying.Remove(name, out Lazy<bool> _))
             {
                 throw IllegalStateException.Create("file " + name + " was not actually being copied?");
             }
