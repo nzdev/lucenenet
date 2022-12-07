@@ -24,21 +24,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-//import java.io.EOFException;
-//import java.io.IOException;
-//import java.nio.BufferUnderflowException;
-//import java.nio.ByteBuffer;
-//import java.nio.ByteOrder;
-//import java.nio.SingleBuffer;
-//import java.nio.Int64Buffer;
-//import java.util.ArrayList;
-//import java.util.Arrays;
-//import java.util.List;
-//import java.util.Locale;
-//import java.util.stream.Collectors;
-//import org.apache.lucene.util.Accountable;
-//import org.apache.lucene.util.RamUsageEstimator;
-
 namespace Lucene.Net.Store
 {
 
@@ -572,7 +557,7 @@ namespace Lucene.Net.Store
             }
             else
             {
-                long absStart = buffers.get(0).position() + offset;
+                long absStart = buffers[0].Position + offset;
                 long absEnd = absStart + length;
 
                 int blockBytes = ByteBuffersDataInput.DetermineBlockPage(buffers);
