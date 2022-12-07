@@ -272,7 +272,7 @@ namespace Lucene.Net.Replicator.Nrt
                             // If e.g. virus checker blocks us from deleting, we absolutely cannot start this node
                             // else there is a definite window during
                             // which if we carsh, we cause corruption:
-                            throw  RuntimeException.Create(
+                            throw RuntimeException.Create(
                                 "replica cannot start: existing segments file="
                                     + segmentsFileName
                                     + " must be removed in order to start, but the file delete failed");
@@ -422,12 +422,12 @@ namespace Lucene.Net.Replicator.Nrt
             try
             {
                 SegmentInfos infos;
-                Collection<String> indexFiles;
+                ICollection<string> indexFiles;
                 UninterruptableMonitor.Enter(this);
                 try
                 {
                     infos = ((SegmentInfosSearcherManager)mgr).GetCurrentInfos();
-                    indexFiles = infos.Files(false);
+                    indexFiles = infos.GetFiles(dir,false);
                     deleter.IncRef(indexFiles);
                 }
                 finally
@@ -933,7 +933,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 MaybeNewPrimary(newPrimaryGen);
                 long primaryGenStart = lastPrimaryGen;
-                ISet<string> fileNames = files.Keys.ToHashSet();
+                ISet<string> fileNames = new HashSet<string>(files.Keys);
                 Message("now pre-copy warm merge files=" + fileNames + " primaryGen=" + newPrimaryGen);
 
                 foreach (string fileName in fileNames)
@@ -1127,7 +1127,7 @@ namespace Lucene.Net.Replicator.Nrt
 
         public void FinishCopyFile(string name)
         {
-            if (!copying.Remove(name, out Lazy<bool> _))
+            if (!copying.TryRemove(name, out Lazy<bool> _))
             {
                 throw IllegalStateException.Create("file " + name + " was not actually being copied?");
             }
