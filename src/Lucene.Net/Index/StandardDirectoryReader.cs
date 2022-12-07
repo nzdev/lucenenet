@@ -1,5 +1,7 @@
 ﻿using J2N.Collections.Generic.Extensions;
 using Lucene.Net.Diagnostics;
+using Lucene.Net.Support;
+using Lucene.Net.Util;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -292,6 +294,169 @@ namespace Lucene.Net.Index
             return new StandardDirectoryReader(directory, newReaders, null, infos, termInfosIndexDivisor, false);
         }
 
+        /// <summary>
+        /// This constructor is only used for {@link #doOpenIfChanged(SegmentInfos)}, as well as NRT
+        /// replication.
+        /// </summary>
+        /// <remarks>
+        /// @lucene.internal
+        /// </remarks>
+        /// <exception cref="IOException"/>
+        public static DirectoryReader Open(
+            Directory directory,
+            SegmentInfos infos,
+            List<LeafReader> oldReaders,
+            IComparable<LeafReader> leafSorter)
+        {
+
+            // we put the old SegmentReaders in a map, that allows us
+            // to lookup a reader using its segment name
+            Dictionary<string, int> segmentReaders = new Dictionary<string, int>();
+
+            if (oldReaders != null)
+            {
+                segmentReaders = CollectionUtil.newHashMap(oldReaders.size());
+                // create a Map SegmentName->SegmentReader
+                for (int i = 0, c = oldReaders.Count; i < c; i++)
+                {
+                    SegmentReader sr = (SegmentReader)oldReaders[i];
+                    segmentReaders.Put(sr.SegmentName, Integer.valueOf(i));
+                }
+            }
+
+            SegmentReader[] newReaders = new SegmentReader[infos.Size()];
+            for (int i = infos.Size() - 1; i >= 0; i--)
+            {
+                SegmentCommitInfo commitInfo = infos.Info(i);
+
+                // find SegmentReader for this segment
+                int oldReaderIndex = segmentReaders[commitInfo.Info.Name];
+                SegmentReader oldReader;
+                if (oldReaderIndex == null)
+                {
+                    // this is a new segment, no old SegmentReader can be reused
+                    oldReader = null;
+                }
+                else
+                {
+                    // there is an old reader for this segment - we'll try to reopen it
+                    oldReader = (SegmentReader)oldReaders[oldReaderIndex];
+                }
+
+                // Make a best effort to detect when the app illegally "rm -rf" their
+                // index while a reader was open, and then called openIfChanged:
+                if (oldReader != null
+                    && Arrays.Equals(commitInfo.Info.getId(), oldReader.SegmentInfo.Info.getId())
+                        == false)
+                {
+                    throw IllegalStateException.Create(
+                        "same segment "
+                            + commitInfo.Info.Name
+                            + " has invalid doc count change; likely you are re-opening a reader after illegally removing index files yourself and building a new index in their place.  Use IndexWriter.deleteAll or open a new IndexWriter using OpenMode.CREATE instead");
+                }
+
+                bool success = false;
+                try
+                {
+                    SegmentReader newReader;
+                    if (oldReader == null
+                        || commitInfo.Info.UseCompoundFile
+                            != oldReader.SegmentInfo.Info.UseCompoundFile)
+                    {
+                        // this is a new reader; in case we hit an exception we can decRef it safely
+                        newReader =
+                            new SegmentReader(commitInfo, infos.getIndexCreatedVersionMajor(), IOContext.READ);
+                        newReaders[i] = newReader;
+                    }
+                    else
+                    {
+                        if (oldReader.isNRT)
+                        {
+                            // We must load liveDocs/DV updates from disk:
+                            IBits liveDocs =
+                                commitInfo.HasDeletions
+                                    ? commitInfo
+                                        .Info
+                                        .Codec
+                                        .LiveDocsFormat
+                                        .ReadLiveDocs(commitInfo.Info.Dir, commitInfo, IOContext.READ_ONCE)
+                                    : null;
+                            newReaders[i] =
+                                new SegmentReader(
+                                    commitInfo,
+                                    oldReader,
+                                    liveDocs,
+                                    liveDocs,
+                                    commitInfo.Info.DocCount - commitInfo.DelCount,
+                                    false);
+                        }
+                        else
+                        {
+                            if (oldReader.SegmentInfo.DelGen == commitInfo.DelGen
+                                && oldReader.SegmentInfo.FieldInfosGen == commitInfo.FieldInfosGen)
+                            {
+                                // No change; this reader will be shared between
+                                // the old and the new one, so we must incRef
+                                // it:
+                                oldReader.IncRef();
+                                newReaders[i] = oldReader;
+                            }
+                            else
+                            {
+                                // Steal the ref returned by SegmentReader ctor:
+                                if (Debugging.AssertsEnabled)
+                                {
+                                    Debugging.Assert(commitInfo.Info.Dir == oldReader.SegmentInfo.Info.Dir);
+                                }
+
+                                if (oldReader.SegmentInfo.DelGen == commitInfo.DelGen)
+                                {
+                                    // only DV updates
+                                    newReaders[i] =
+                                        new SegmentReader(
+                                            commitInfo,
+                                            oldReader,
+                                            oldReader.LiveDocs,
+                                            oldReader.getHardLiveDocs(),
+                                            oldReader.NumDocs,
+                                            false); // this is not an NRT reader!
+                                }
+                                else
+                                {
+                                    // both DV and liveDocs have changed
+                                    IBits liveDocs =
+                                        commitInfo.HasDeletions
+                                            ? commitInfo
+                                                .Info
+                                                 .Codec
+                                                 .LiveDocsFormat
+                                                .ReadLiveDocs(commitInfo.Info.Dir, commitInfo, IOContext.READ_ONCE)
+                                            : null;
+                                    newReaders[i] =
+                                        new SegmentReader(
+                                            commitInfo,
+                                            oldReader,
+                                            liveDocs,
+                                            liveDocs,
+                                            commitInfo.Info.maxDoc() - commitInfo.DelCount,
+                                            false);
+                                }
+                            }
+                        }
+                    }
+                    success = true;
+                }
+                finally
+                {
+                    if (!success)
+                    {
+                        DecRefWhileHandlingException(newReaders);
+                    }
+                }
+            }
+            return new StandardDirectoryReader(
+                directory, newReaders, null, infos, leafSorter, false, false);
+        }
         public override string ToString()
         {
             StringBuilder buffer = new StringBuilder();

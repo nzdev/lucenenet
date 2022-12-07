@@ -100,65 +100,65 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         protected override IndexSearcher RefreshIfNeeded(IndexSearcher old)
         {
-            IList<LeafReader> subs;
+            IList<IndexReader> subs;
             if (old == null)
             {
                 subs = null;
             }
             else
             {
-                subs = new List<LeafReader>();
-                foreach (LeafReaderContext ctx in old.GetIndexReader().Leaves())
+                subs = new List<IndexReader>();
+                foreach (AtomicReaderContext ctx in old.GetIndexReader().Leaves)
                 {
-                    subs.Add(ctx.Reader());
+                    subs.Add(ctx.Reader);
                 }
             }
 
             // Open a new reader, sharing any common segment readers with the old one:
             DirectoryReader r = StandardDirectoryReader.Open(dir, currentInfos, subs, null);
             AddReaderClosedListener(r);
-            node.Message("refreshed to version=" + currentInfos.GetVersion() + " r=" + r);
+            node.Message("refreshed to version=" + currentInfos.Version + " r=" + r);
             return SearcherManager.GetSearcher(searcherFactory, r, old.GetIndexReader());
         }
-
-
         private void AddReaderClosedListener(IndexReader r)
         {
-            IndexReader.CacheHelper cacheHelper = r.GetReaderCacheHelper();
-            if (cacheHelper == null)
-            {
-                throw new IllegalStateException("StandardDirectoryReader must support caching");
-            }
-            openReaderCount.IncrementAndGet();
-            cacheHelper.addClosedListener(
-                new IndexReader.ClosedListener()
-                {
-                      public override void onClose(IndexReader.CacheKey cacheKey)
-        {
-            OnReaderClosed();
+            throw new System.NotImplementedException("TOOD");
+            //TODO
+            //IndexReader.CacheHelper cacheHelper = r.getReaderCacheHelper();
+            //if (cacheHelper == null)
+            //{
+            //    throw new IllegalStateException("StandardDirectoryReader must support caching");
+            //}
+            //openReaderCount.incrementAndGet();
+            //cacheHelper.addClosedListener(
+            //    new IndexReader.ClosedListener() {
+            //      @Override
+            //              public void onClose(IndexReader.CacheKey cacheKey)
+            //        {
+            //            onReaderClosed();
+            //        }
+            //    });
         }
-    });
-  }
 
-/// <summary>
-/// Tracks how many readers are still open, so that when we are closed, we can additionally wait
-/// until all in-flight searchers are closed.
-/// </summary>
-void OnReaderClosed()
-{
-    UninterruptableMonitor.Enter(this);
-    try
-    {
-        if (openReaderCount.decrementAndGet() == 0)
+        /// <summary>
+        /// Tracks how many readers are still open, so that when we are closed, we can additionally wait
+        /// until all in-flight searchers are closed.
+        /// </summary>
+        private void OnReaderClosed()
         {
-            notifyAll();
+            UninterruptableMonitor.Enter(this);
+            try
+            {
+                if (openReaderCount.DecrementAndGet() == 0)
+                {
+                    NotifyAll();
+                }
+            }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+
         }
     }
-    }
-    finally
-{
-    UninterruptableMonitor.Exit(this);
-}
-    
-}
 }

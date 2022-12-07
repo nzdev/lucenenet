@@ -1839,28 +1839,28 @@ namespace Lucene.Net.Index
                 input.ReadBytes(segmentID, 0, segmentID.Length);
                 Codec codec = ReadCodec(input);
                 SegmentInfo info =
-                    codec.SegmentInfoFormat().Read(directory, segName, segmentID, IOContext.READ);
-                info.SetCodec(codec);
-                totalDocs += info.MaxDoc();
+                    codec.SegmentInfoFormat.Read(directory, segName, segmentID, IOContext.READ);
+                info.Codec = codec;
+                totalDocs += info.DocCount;
                 long delGen = CodecUtil.ReadBELong(input);
                 int delCount = CodecUtil.ReadBEInt(input);
-                if (delCount < 0 || delCount > info.MaxDoc())
+                if (delCount < 0 || delCount > info.DocCount)
                 {
                     throw new CorruptIndexException(
-                        "invalid deletion count: " + delCount + " vs maxDoc=" + info.MaxDoc(), input);
+                        "invalid deletion count: " + delCount + " vs maxDoc=" + info.DocCount, input);
                 }
                 long fieldInfosGen = CodecUtil.ReadBELong(input);
                 long dvGen = CodecUtil.ReadBELong(input);
                 int softDelCount = CodecUtil.ReadBEInt(input);
-                if (softDelCount < 0 || softDelCount > info.MaxDoc())
+                if (softDelCount < 0 || softDelCount > info.DocCount)
                 {
                     throw new CorruptIndexException(
-                        "invalid deletion count: " + softDelCount + " vs maxDoc=" + info.MaxDoc(), input);
+                        "invalid deletion count: " + softDelCount + " vs maxDoc=" + info.DocCount, input);
                 }
-                if (softDelCount + delCount > info.MaxDoc())
+                if (softDelCount + delCount > info.DocCount)
                 {
                     throw new CorruptIndexException(
-                        "invalid deletion count: " + (softDelCount + delCount) + " vs maxDoc=" + info.maxDoc(),
+                        "invalid deletion count: " + (softDelCount + delCount) + " vs maxDoc=" + info.DocCount,
                         input);
                 }
                 byte[] sciId;
@@ -1966,7 +1966,7 @@ namespace Lucene.Net.Index
             catch (IllegalArgumentException e)
             {
                 // maybe it's an old default codec that moved
-                if (name.startsWith("Lucene"))
+                if (name.StartsWith("Lucene"))
                 {
                     throw new IllegalArgumentException(
                         "Could not load codec '"

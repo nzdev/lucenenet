@@ -59,6 +59,12 @@ namespace Lucene.Net.Index
         internal readonly SegmentCoreReaders core;
         internal readonly SegmentDocValues segDocValues;
 
+        /// <summary>
+        /// True if we are holding RAM only liveDocs or DV updates, i.e. the SegmentCommitInfo delGen
+        /// doesn't match our liveDocs.
+        /// </summary>
+        private readonly bool isNRT;
+
         internal readonly DisposableThreadLocal<IDictionary<string, object>> docValuesLocal =
             new DisposableThreadLocal<IDictionary<string, object>>(() => new Dictionary<string, object>());
 
@@ -87,6 +93,10 @@ namespace Lucene.Net.Index
             // Best if we could somehow read FieldInfos in SCR but not keep it there, but
             // constructors don't allow returning two things...
             fieldInfos = ReadFieldInfos(si);
+
+            // We pull liveDocs/DV updates from disk:
+            this.isNRT = false;
+
             core = new SegmentCoreReaders(this, si.Info.Dir, si, context, termInfosIndexDivisor);
             segDocValues = new SegmentDocValues();
 
@@ -143,10 +153,11 @@ namespace Lucene.Net.Index
         /// liveDocs.  Used by <see cref="IndexWriter"/> to provide a new NRT
         /// reader
         /// </summary>
-        internal SegmentReader(SegmentCommitInfo si, SegmentReader sr, IBits liveDocs, int numDocs)
+        internal SegmentReader(SegmentCommitInfo si, SegmentReader sr, IBits liveDocs, int numDocs, bool isNRT)
         {
             this.si = si;
             this.liveDocs = liveDocs;
+            this.isNRT = isNRT;
             this.numDocs = numDocs;
             this.core = sr.core;
             core.IncRef();
