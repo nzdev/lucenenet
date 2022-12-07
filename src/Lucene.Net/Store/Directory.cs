@@ -82,6 +82,19 @@ namespace Lucene.Net.Store
         public abstract IndexOutput CreateOutput(string name, IOContext context);
 
         /// <summary>
+        /// Creates a new, empty, temporary file in the directory and returns an <see cref="IndexOutput"/>
+        /// instance for appending data to this file.
+        /// The temporary file name (accessible via {@link IndexOutput#getName()}) will start with
+        /// {@code prefix}, end with {@code suffix} and have a reserved file extension {@code .tmp}.
+        /// </summary>
+        /// <param name="prefix"></param>
+        /// <param name="suffix"></param>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        /// <exception cref="IOException"/>
+        public abstract IndexOutput CreateTempOutput(String prefix, String suffix, IOContext context);
+
+        /// <summary>
         /// Ensure that any writes to these files are moved to
         /// stable storage.  Lucene uses this to properly commit
         /// changes to the index, to prevent a machine/OS crash

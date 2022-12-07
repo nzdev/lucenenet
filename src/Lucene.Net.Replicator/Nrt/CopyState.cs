@@ -33,7 +33,7 @@ namespace Lucene.Net.Replicator.Nrt
     {
 
 #pragma warning disable IDE1006 // Naming Styles
-        public readonly IReadOnlyDictionary<string, FileMetaData> files;
+        public readonly IDictionary<string, FileMetaData> files;
         public readonly long version;
         public readonly long gen;
         public readonly byte[] infosBytes;
@@ -48,7 +48,7 @@ namespace Lucene.Net.Replicator.Nrt
 #pragma warning restore IDE1006 // Naming Styles
 
         public CopyState(
-            IReadOnlyDictionary<string, FileMetaData> files,
+            IDictionary<string, FileMetaData> files,
             long version,
             long gen,
             byte[] infosBytes,

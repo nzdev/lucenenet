@@ -139,8 +139,8 @@ namespace Lucene.Net.Store
                 {
                     ByteBuffer block = blocks[blockIndex(pos)].Duplicate();
                     int blockOffset = blockOffset(pos);
-                    block.Position(blockOffset);
-                    int chunk = Math.Min(len, block.Remaining());
+                    block.SetPosition(blockOffset);
+                    int chunk = Math.Min(len, block.Remaining);
                     if (chunk == 0)
                     {
                         throw new EOFException();
@@ -148,7 +148,7 @@ namespace Lucene.Net.Store
 
                     // Update pos early on for EOF detection on output buffer, then try to get buffer content.
                     pos += chunk;
-                    block.limit(blockOffset + chunk);
+                    block.SetLimit(blockOffset + chunk);
                     buffer.put(block);
 
                     len -= chunk;
@@ -175,8 +175,8 @@ namespace Lucene.Net.Store
                 while (len > 0)
                 {
                     ByteBuffer block = blocks[blockIndex(pos)].duplicate();
-                    block.Position(blockOffset(pos));
-                    int chunk = Math.min(len, block.Remaining());
+                    block.SetPosition(blockOffset(pos));
+                    int chunk = Math.Min(len, block.Remaining);
                     if (chunk == 0)
                     {
                         throw new EOFException();
@@ -272,7 +272,7 @@ namespace Lucene.Net.Store
             }
         }
 
-        public override int readInt(long pos)
+        public override int ReadInt(long pos)
         {
             long absPos = offset + pos;
             int blockOffset = blockOffset(absPos);

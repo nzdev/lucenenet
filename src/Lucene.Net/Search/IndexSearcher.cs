@@ -136,7 +136,7 @@ namespace Lucene.Net.Search
         /// <seealso cref="IndexReader.Context"/>
         public IndexSearcher(IndexReaderContext context, TaskScheduler executor)
         {
-            if (Debugging.AssertsEnabled) Debugging.Assert(context.IsTopLevel,"IndexSearcher's ReaderContext must be topLevel for reader {0}", context.Reader);
+            if (Debugging.AssertsEnabled) Debugging.Assert(context.IsTopLevel, "IndexSearcher's ReaderContext must be topLevel for reader {0}", context.Reader);
             reader = context.Reader;
             this.executor = executor;
             this.m_readerContext = context;
@@ -213,6 +213,17 @@ namespace Lucene.Net.Search
         {
             get => similarity;
             set => this.similarity = value;
+        }
+
+        /// <summary>
+        /// Count how many documents match the given query. May be faster than counting number of hits by
+        /// collecting all matches, as the number of hits is retrieved from the index statistics when
+        /// possible.
+        /// </summary>
+        /// <exception cref="IOException"/>
+        public int Count(Query query)
+        {
+            return Search(new ConstantScoreQuery(query), new TotalHitCountCollectorManager());
         }
 
         /// <summary>

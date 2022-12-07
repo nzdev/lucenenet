@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -30,7 +30,7 @@ import org.apache.lucene.util.IOUtils;
  * Handles one set of files that need copying, either because we have a new NRT point, or we are
  * pre-copying merged files for merge warming.
  */
-class SimpleCopyJob extends CopyJob
+class SimpleCopyJob : CopyJob
 {
     final Connection c;
 

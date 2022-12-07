@@ -1261,6 +1261,28 @@ namespace Lucene.Net.Index
             generation = other.generation;
         }
 
+        // Carry over generation numbers, and version/counter, from another SegmentInfos
+        void UpdateGenerationVersionAndCounter(SegmentInfos other)
+        {
+            UpdateGeneration(other);
+            this.Version = other.Version;
+            this.Counter = other.Counter;
+        }
+
+        /// <summary>
+        /// Set the generation to be used for the next commit
+        /// </summary>
+        /// <param name="generation"></param>
+        /// <exception cref="IllegalStateException"></exception>
+        public void SetNextWriteGeneration(long generation)
+        {
+            if (generation < this.generation)
+            {
+                throw IllegalStateException.Create("cannot decrease generation to " + generation + " from current generation " + this.generation);
+            }
+            this.generation = generation;
+        }
+
         internal void RollbackCommit(Directory dir)
         {
             if (pendingSegnOutput != null)
@@ -1461,6 +1483,20 @@ namespace Lucene.Net.Index
                 {
                     userData = value;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Sets the commit data.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="doIncrementVersion"></param>
+        public void SetUserData(IDictionary<string, string> data, bool doIncrementVersion)
+        {
+            UserData = data;
+            if (doIncrementVersion)
+            {
+                Changed();
             }
         }
 

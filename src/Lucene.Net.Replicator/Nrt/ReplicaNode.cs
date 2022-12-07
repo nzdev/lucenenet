@@ -94,7 +94,8 @@ namespace Lucene.Net.Replicator.Nrt
         /// <param name="searcherFactory"></param>
         /// <param name="textWriter"></param>
         /// <exception cref="IOException"/>
-        public ReplicaNode(int id, Directory dir, SearcherFactory searcherFactory, TextWriter textWriter) : base(id, dir, searcherFactory, textWriter)
+        public ReplicaNode(int id, Directory dir, SearcherFactory searcherFactory, TextWriter textWriter)
+            : base(id, dir, searcherFactory, textWriter)
         {
 
             if (dir.GetPendingDeletions().Any())
@@ -212,7 +213,7 @@ namespace Lucene.Net.Replicator.Nrt
                     {
                         if (Debugging.AssertsEnabled)
                         {
-                            Debugging.Assert(infos.Size() == 0);
+                            Debugging.Assert(infos.Count == 0);
                         }
                         myPrimaryGen = -1;
                     }
@@ -224,7 +225,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                     bool doCommit;
 
-                    if (infos.Size() > 0 && myPrimaryGen != -1 && myPrimaryGen != curPrimaryGen)
+                    if (infos.Count > 0 && myPrimaryGen != -1 && myPrimaryGen != curPrimaryGen)
                     {
                         if (Debugging.AssertsEnabled)
                         {
@@ -456,7 +457,7 @@ namespace Lucene.Net.Replicator.Nrt
                 // generation we are up to; this way future
                 // commits are guaranteed to go to the next (unwritten) generations:
                 ((SegmentInfosSearcherManager)mgr).GetCurrentInfos().UpdateGeneration(infos);
-                String segmentsFileName = infos.GetSegmentsFileName();
+                string segmentsFileName = infos.GetSegmentsFileName();
                 Message(
                     "top: commit wrote segments file "
                         + segmentsFileName
@@ -793,7 +794,7 @@ namespace Lucene.Net.Replicator.Nrt
                 {
                     // E.g. primary could crash/close when we are asking it for the copy state:
                     Message("top: ignoring exception starting CopyJob: " + nce);
-                    nce.PrintStackTrace(printStream);
+                    nce.PrintStackTrace(TextWriter);
                     if (state.Equals("syncing"))
                     {
                         state = "idle";

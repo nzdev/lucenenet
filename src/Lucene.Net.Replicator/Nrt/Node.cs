@@ -96,7 +96,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// <summary>
         /// File metadata for last sync that succeeded; we use this as a cache
         /// </summary>
-        protected volatile IReadonlyDictionary<string, FileMetaData> lastFileMetaData;
+        protected volatile IDictionary<string, FileMetaData> lastFileMetaData;
 
         public Node(int id, Directory dir, SearcherFactory searcherFactory, TextWriter TextWriter)
         {
