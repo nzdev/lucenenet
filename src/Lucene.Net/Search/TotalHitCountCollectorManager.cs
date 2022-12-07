@@ -36,7 +36,7 @@ namespace Lucene.Net.Search
         }
 
         /// <exception cref="IOException"/>
-        public override int Reduce(ICollection<TotalHitCountCollector> collectors)
+        public int Reduce(ICollection<TotalHitCountCollector> collectors)
         {
             int totalHits = 0;
             foreach (TotalHitCountCollector collector in collectors)
