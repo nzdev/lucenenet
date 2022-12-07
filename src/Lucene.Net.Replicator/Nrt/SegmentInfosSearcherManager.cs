@@ -100,17 +100,17 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         protected override IndexSearcher RefreshIfNeeded(IndexSearcher old)
         {
-            IList<IndexReader> subs;
+            IList<AtomicReader> subs;
             if (old == null)
             {
                 subs = null;
             }
             else
             {
-                subs = new List<IndexReader>();
+                subs = new List<AtomicReader>();
                 foreach (AtomicReaderContext ctx in old.GetIndexReader().Leaves)
                 {
-                    subs.Add(ctx.Reader);
+                    subs.Add(ctx.AtomicReader);
                 }
             }
 

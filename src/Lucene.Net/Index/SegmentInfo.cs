@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using Lucene.Net.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
+using Lucene.Net.Support;
+using Lucene.Net.Util;
 
 namespace Lucene.Net.Index
 {
@@ -62,6 +64,11 @@ namespace Lucene.Net.Index
 
         private bool isCompoundFile;
 
+        /// <summary>
+        /// Id that uniquely identifies this segment.
+        /// </summary>
+        private readonly byte[] id;
+
         private Codec codec;
 
         private IDictionary<string, string> diagnostics;
@@ -90,8 +97,8 @@ namespace Lucene.Net.Index
         /// <para>Note: this is public only to allow access from
         /// the codecs package.</para>
         /// </summary>
-        public SegmentInfo(Directory dir, string version, string name, int docCount, bool isCompoundFile, Codec codec, IDictionary<string, string> diagnostics)
-            : this(dir, version, name, docCount, isCompoundFile, codec, diagnostics, null)
+        public SegmentInfo(Directory dir, string version, string name, int docCount, bool isCompoundFile, Codec codec, IDictionary<string, string> diagnostics, byte[] id)
+            : this(dir, version, name, docCount, isCompoundFile, codec, diagnostics,id, null)
         {
         }
 
@@ -100,7 +107,7 @@ namespace Lucene.Net.Index
         /// <para>Note: this is public only to allow access from
         /// the codecs package.</para>
         /// </summary>
-        public SegmentInfo(Directory dir, string version, string name, int docCount, bool isCompoundFile, Codec codec, IDictionary<string, string> diagnostics, IDictionary<string, string> attributes)
+        public SegmentInfo(Directory dir, string version, string name, int docCount, bool isCompoundFile, Codec codec, IDictionary<string, string> diagnostics, byte[] id, IDictionary<string, string> attributes)
         {
             if (Debugging.AssertsEnabled) Debugging.Assert(!(dir is TrackingDirectoryWrapper));
             this.Dir = dir;
@@ -110,6 +117,11 @@ namespace Lucene.Net.Index
             this.isCompoundFile = isCompoundFile;
             this.codec = codec;
             this.diagnostics = diagnostics;
+            this.id = id;
+            if (id.Length != StringHelper.ID_LENGTH)
+            {
+                throw new IllegalArgumentException("invalid id: " + Arrays.ToString(id));
+            }
 #pragma warning disable 612, 618
             this.attributes = attributes;
 #pragma warning restore 612, 618
@@ -257,6 +269,11 @@ namespace Lucene.Net.Index
             get => version;
             set => this.version = value;
         }
+
+        /// <summary>
+        /// Return the id that uniquely identifies this segment.
+        /// </summary>
+        public byte[] Id => (byte[])id.Clone();
 
         private ISet<string> setFiles;
 

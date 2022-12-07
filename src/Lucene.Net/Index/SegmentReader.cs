@@ -433,6 +433,8 @@ namespace Lucene.Net.Index
         /// </summary>
         public int TermInfosIndexDivisor => core.termsIndexDivisor;
 
+        public bool IsNRT => isNRT;
+
         // returns the FieldInfo that corresponds to the given field and type, or
         // null if the field does not exist, or not indexed as the requested
         // DovDocValuesType.

@@ -239,7 +239,7 @@ namespace Lucene.Net.Index
                             if (newReaders[i].SegmentInfo.DelGen == infos[i].DelGen)
                             {
                                 // only DV updates
-                                newReaders[i] = new SegmentReader(infos[i], newReaders[i], newReaders[i].LiveDocs, newReaders[i].NumDocs);
+                                newReaders[i] = new SegmentReader(infos[i], newReaders[i], newReaders[i].LiveDocs, newReaders[i].NumDocs, false);
                             }
                             else
                             {
@@ -305,8 +305,8 @@ namespace Lucene.Net.Index
         public static DirectoryReader Open(
             Directory directory,
             SegmentInfos infos,
-            List<LeafReader> oldReaders,
-            IComparable<LeafReader> leafSorter)
+            IList<AtomicReader> oldReaders,
+            IComparable<AtomicReader> leafSorter)
         {
 
             // we put the old SegmentReaders in a map, that allows us
@@ -315,19 +315,19 @@ namespace Lucene.Net.Index
 
             if (oldReaders != null)
             {
-                segmentReaders = CollectionUtil.newHashMap(oldReaders.size());
+                segmentReaders = new Dictionary<string, int>(oldReaders.Count);
                 // create a Map SegmentName->SegmentReader
                 for (int i = 0, c = oldReaders.Count; i < c; i++)
                 {
                     SegmentReader sr = (SegmentReader)oldReaders[i];
-                    segmentReaders.Put(sr.SegmentName, Integer.valueOf(i));
+                    segmentReaders.Put(sr.SegmentName, i);
                 }
             }
 
-            SegmentReader[] newReaders = new SegmentReader[infos.Size()];
-            for (int i = infos.Size() - 1; i >= 0; i--)
+            SegmentReader[] newReaders = new SegmentReader[infos.Count];
+            for (int i = infos.Count - 1; i >= 0; i--)
             {
-                SegmentCommitInfo commitInfo = infos.Info(i);
+                SegmentCommitInfo commitInfo = infos[i];
 
                 // find SegmentReader for this segment
                 int oldReaderIndex = segmentReaders[commitInfo.Info.Name];
@@ -346,7 +346,7 @@ namespace Lucene.Net.Index
                 // Make a best effort to detect when the app illegally "rm -rf" their
                 // index while a reader was open, and then called openIfChanged:
                 if (oldReader != null
-                    && Arrays.Equals(commitInfo.Info.getId(), oldReader.SegmentInfo.Info.getId())
+                    && Arrays.Equals(commitInfo.Info.Id, oldReader.SegmentInfo.Info.Id)
                         == false)
                 {
                     throw IllegalStateException.Create(
@@ -370,7 +370,7 @@ namespace Lucene.Net.Index
                     }
                     else
                     {
-                        if (oldReader.isNRT)
+                        if (oldReader.IsNRT)
                         {
                             // We must load liveDocs/DV updates from disk:
                             IBits liveDocs =
@@ -438,7 +438,7 @@ namespace Lucene.Net.Index
                                             oldReader,
                                             liveDocs,
                                             liveDocs,
-                                            commitInfo.Info.maxDoc() - commitInfo.DelCount,
+                                            commitInfo.Info.DocCount - commitInfo.DelCount,
                                             false);
                                 }
                             }
