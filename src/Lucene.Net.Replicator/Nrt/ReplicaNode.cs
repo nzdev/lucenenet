@@ -167,8 +167,7 @@ namespace Lucene.Net.Replicator.Nrt
                         {
                             long gen =
                                 long.Parse(
-                                    fileName.Substring(IndexFileNames.PENDING_SEGMENTS.Length + 1),
-                                    Character.MaxRadix);
+                                    fileName.Substring(IndexFileNames.PENDING_SEGMENTS.Length + 1));
                             if (gen > maxPendingGen)
                             {
                                 maxPendingGen = gen;
@@ -329,7 +328,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                         SegmentInfos syncInfos =
                             SegmentInfos.ReadCommit(
-                                dir, toIndexInput(job.GetCopyState().infosBytes), job.GetCopyState().gen);
+                                dir, ToIndexInput(job.GetCopyState().infosBytes), job.GetCopyState().gen);
 
                         // Must always commit to a larger generation than what's currently in the index:
                         syncInfos.UpdateGeneration(infos);
@@ -530,7 +529,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 // Turn byte[] back to SegmentInfos:
                 SegmentInfos infos =
-                    SegmentInfos.ReadCommit(dir, toIndexInput(copyState.infosBytes), copyState.gen);
+                    SegmentInfos.ReadCommit(dir, ToIndexInput(copyState.infosBytes), copyState.gen);
                 if (Debugging.AssertsEnabled)
                 {
                     Debugging.Assert(infos.Version == copyState.version);
@@ -603,19 +602,19 @@ namespace Lucene.Net.Replicator.Nrt
                     markerCount));
         }
 
-        private ChecksumIndexInput toIndexInput(byte[] input)
+        private ChecksumIndexInput ToIndexInput(byte[] input)
         {
             return new BufferedChecksumIndexInput(
                 new ByteBufferIndexInput(
                     new ByteBufferDataInput(Arrays.AsList(ByteBuffer.Wrap(input))), "SegmentInfos"));
         }
 
-        /**
-         * Start a background copying job, to copy the specified files from the current primary node. If
-         * files is null then the latest copy state should be copied. If prevJob is not null, then the new
-         * copy job is replacing it and should 1) cancel the previous one, and 2) optionally salvage e.g.
-         * partially copied and, shared with the new copy job, files.
-         */
+        /// <summary>
+        /// Start a background copying job, to copy the specified files from the current primary node. If
+        /// files is null then the latest copy state should be copied. If prevJob is not null, then the new
+        /// copy job is replacing it and should 1) cancel the previous one, and 2) optionally salvage e.g.
+        /// partially copied and, shared with the new copy job, files.
+        /// </summary>
         /// <exception cref="IOException"/>
         protected abstract CopyJob NewCopyJob(
             String reason,
@@ -624,21 +623,24 @@ namespace Lucene.Net.Replicator.Nrt
             bool highPriority,
             CopyJob.IOnceDone onceDone);
 
-        /** Runs this job async'd */
+        /// <summary>
+        /// Runs this job async'd
+        /// </summary>
+        /// <param name="job"></param>
         protected abstract void Launch(CopyJob job);
 
-        /**
-         * Tell primary we (replica) just started, so primary can tell us to warm any already warming
-         * merges. This lets us keep low nrt refresh time for the first nrt sync after we started.
-         */
+        /// <summary>
+        /// Tell primary we (replica) just started, so primary can tell us to warm any already warming
+        /// merges. This lets us keep low nrt refresh time for the first nrt sync after we started.
+        /// </summary>
         /// <exception cref="IOException"/>
         protected abstract void SendNewReplica();
 
-        /**
-         * Call this to notify this replica node that a new NRT infos is available on the primary. We kick
-         * off a job (runs in the background) to copy files across, and open a new reader once that's
-         * done.
-         */
+        /// <summary>
+        /// Call this to notify this replica node that a new NRT infos is available on the primary. We kick
+        /// off a job (runs in the background) to copy files across, and open a new reader once that's
+        /// done.
+        /// </summary>
         /// <exception cref="IOException"/>
         public CopyJob NewNRTPoint(long newPrimaryGen, long version)
         {
