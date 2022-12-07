@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace Lucene.Net.Store
 {
@@ -73,6 +74,11 @@ namespace Lucene.Net.Store
             return m_input.CreateOutput(name, context);
         }
 
+        /// <exception cref="IOException"/>
+        public override IndexOutput CreateTempOutput(string prefix, string suffix, IOContext context)
+        {
+            return m_input.CreateTempOutput(prefix, suffix, context);
+        }
         public override void Sync(ICollection<string> names)
         {
             m_input.Sync(names);
@@ -116,6 +122,11 @@ namespace Lucene.Net.Store
         public override string ToString()
         {
             return this.GetType().Name + "(" + m_input.ToString() + ")";
+        }
+        /// <exception cref="IOException"/>
+        public override ISet<string> GetPendingDeletions()
+        {
+            return m_input.GetPendingDeletions();
         }
     }
 }

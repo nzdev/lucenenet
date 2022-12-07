@@ -64,7 +64,7 @@ namespace Lucene.Net.Store
     /// <para/>
     /// @lucene.experimental
     /// </summary>
-    public class NRTCachingDirectory : Directory
+    public class NRTCachingDirectory : FilterDirectory
     {
         private readonly RAMDirectory cache = new RAMDirectory();
 
@@ -83,7 +83,8 @@ namespace Lucene.Net.Store
         /// maxMergeSizeMB, and 2) the total cached bytes is &lt;=
         /// maxCachedMB
         /// </summary>
-        public NRTCachingDirectory(Directory @delegate, double maxMergeSizeMB, double maxCachedMB)
+        public NRTCachingDirectory(Directory @delegate, double maxMergeSizeMB, double maxCachedMB) :
+            base(@delegate)
         {
             this.@delegate = @delegate;
             maxMergeSizeBytes = (long)(maxMergeSizeMB * 1024 * 1024);
@@ -387,6 +388,86 @@ namespace Lucene.Net.Store
             }
 
             return !name.Equals(IndexFileNames.SEGMENTS_GEN, StringComparison.Ordinal) && (bytes <= maxMergeSizeBytes) && (bytes + cache.GetSizeInBytes()) <= maxCachedBytes;
+        }
+
+        /// <exception cref="IOException"/>
+        public override IndexOutput CreateTempOutput(string prefix, string suffix, IOContext context)
+        {
+            if (VERBOSE)
+            {
+                Console.WriteLine("nrtdir.createTempOutput prefix=" + prefix + " suffix=" + suffix);
+            }
+            ISet<string> toDelete = new HashSet<string>();
+
+            // This is very ugly/messy/dangerous (can in some disastrous case maybe create too many temp
+            // files), but I don't know of a cleaner way:
+            bool success = false;
+
+            Directory first;
+            Directory second;
+            if (DoCacheWrite(prefix, context))
+            {
+                first = cache;
+                second = m_input;
+            }
+            else
+            {
+                first = m_input;
+                second = cache;
+            }
+
+            IndexOutput @out = null;
+            try
+            {
+                while (true)
+                {
+                    @out = first.CreateTempOutput(prefix, suffix, context);
+                    string name = @out.Name;
+                    toDelete.Add(name);
+                    if (SlowFileExists(second, name))
+                    {
+                        @out.Dispose();
+                    }
+                    else
+                    {
+                        toDelete.Remove(name);
+                        success = true;
+                        break;
+                    }
+                }
+            }
+            finally
+            {
+                if (success)
+                {
+                    IOUtils.DeleteFiles(first, toDelete.ToArray());
+                }
+                else
+                {
+                    IOUtils.DisposeWhileHandlingException(@out);
+                    IOUtils.DeleteFilesIgnoringExceptions(first, toDelete.ToArray());
+                }
+            }
+
+            return @out;
+        }
+
+        /// <summary>
+        /// Returns true if the file exists (can be opened), false if it cannot be opened, and (unlike
+        /// Java's File.exists) throws IOException if there's some unexpected error.
+        /// </summary>
+        /// <exception cref="IOException"/>
+        static bool SlowFileExists(Directory dir, String fileName)
+        {
+            try
+            {
+                dir.FileLength(fileName);
+                return true;
+            }
+            catch (FileNotFoundException)
+            {
+                return false;
+            }
         }
 
         private readonly object uncacheLock = new object();

@@ -296,6 +296,30 @@ namespace Lucene.Net.Store
             }
         }
 
+        /// <exception cref="IOException"/>
+        public override IndexOutput CreateTempOutput(string prefix, string suffix, IOContext context)
+        {
+            EnsureOpen();
+            MaybeDeletePendingFiles();
+            while (true)
+            {
+                //try
+                //{
+                    string name = GetTempFileName(prefix, suffix, nextTempFileCounter.GetAndIncrement());
+                    if (PendingDeletes.Contains(name))
+                    {
+                        continue;
+                    }
+                    return new FSIndexOutput(name, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW);
+                //}
+                //catch (
+                //    @SuppressWarnings("unused")
+                //      FileAlreadyExistsException faee) {
+                //    Retry with next incremented name
+                //}
+            }
+        }
+
         /// <summary>
         /// Removes an existing file in the directory. </summary>
         public override void DeleteFile(string name)
@@ -414,7 +438,7 @@ namespace Lucene.Net.Store
             for (int charIDX = 0; charIDX < dirName.Length; charIDX++)
             {
                 char ch = dirName[charIDX];
-                digest = 31*digest + ch;
+                digest = 31 * digest + ch;
             }
             return "lucene-" + digest.ToString("x", CultureInfo.InvariantCulture);
         }

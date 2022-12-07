@@ -2,6 +2,7 @@
 using Lucene.Net.Support;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
@@ -432,6 +433,39 @@ namespace Lucene.Net.Util
             }
         }
 
+                /**
+          * Deletes all given file names. Some of the file names may be null; they are ignored. After
+          * everything is deleted, the method either throws the first exception it hit while deleting, or
+          * completes normally if there were no exceptions.
+          *
+          * @param dir Directory to delete files from
+          * @param names file names to delete
+          */
+        /// <exception cref="IOException"/>
+        public static void DeleteFiles(Directory dir, ICollection<string> names)
+        {
+            Exception th = null;
+            foreach (string name in names)
+            {
+                if (name != null)
+                {
+                    try
+                    {
+                        dir.DeleteFile(name);
+                    }
+                    catch (Exception t)
+                    {
+                        th = UseOrSuppress(th, t);
+                    }
+                }
+            }
+
+            if (th != null)
+            {
+                throw RethrowAlways(th);
+            }
+        }
+
         /// <summary>
         /// Deletes all given files, suppressing all thrown <see cref="Exception"/>s.
         /// <para/>
@@ -557,12 +591,29 @@ namespace Lucene.Net.Util
                 throw (Error)th;
             }
 
-            throw new RuntimeException(th);
+            throw RuntimeException.Create(th);
         }
 
 
         // LUCENENET specific: Fsync is pointless in .NET, since we are 
         // calling FileStream.Flush(true) before the stream is disposed
         // which means we never need it at the point in Java where it is called.
+
+        /// <summary>
+        /// Returns the second Exception if the first is null otherwise adds the second as suppressed to
+        /// the first and returns it.
+        /// </summary>
+        public static T UseOrSuppress<T>(T first, T second) where T : Exception
+        {
+            if (first == null)
+            {
+                return second;
+            }
+            else
+            {
+                first.AddSuppressed(second);
+            }
+            return first;
+        }
     }
 }
