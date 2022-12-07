@@ -122,22 +122,21 @@ namespace Lucene.Net.Replicator.Nrt
         }
         private void AddReaderClosedListener(IndexReader r)
         {
-            throw new System.NotImplementedException("TOOD");
-            //TODO
-            //IndexReader.CacheHelper cacheHelper = r.getReaderCacheHelper();
-            //if (cacheHelper == null)
-            //{
-            //    throw new IllegalStateException("StandardDirectoryReader must support caching");
-            //}
-            //openReaderCount.incrementAndGet();
-            //cacheHelper.addClosedListener(
-            //    new IndexReader.ClosedListener() {
-            //      @Override
-            //              public void onClose(IndexReader.CacheKey cacheKey)
-            //        {
-            //            onReaderClosed();
-            //        }
-            //    });
+            
+            IndexReader.CacheHelper cacheHelper = r.getReaderCacheHelper();
+            if (cacheHelper == null)
+            {
+                throw new IllegalStateException("StandardDirectoryReader must support caching");
+            }
+            openReaderCount.incrementAndGet();
+            cacheHelper.addClosedListener(
+                new IndexReader.ClosedListener() {
+                  @Override
+                          public void onClose(IndexReader.CacheKey cacheKey)
+            {
+                onReaderClosed();
+            }
+        });
         }
 
         /// <summary>
@@ -151,7 +150,7 @@ namespace Lucene.Net.Replicator.Nrt
             {
                 if (openReaderCount.DecrementAndGet() == 0)
                 {
-                    NotifyAll();
+                    UninterruptableMonitor.PulseAll(this);
                 }
             }
             finally
