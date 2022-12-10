@@ -20,6 +20,7 @@ using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Support.Threading;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Directory = Lucene.Net.Store.Directory;
@@ -120,23 +121,38 @@ namespace Lucene.Net.Replicator.Nrt
             node.Message("refreshed to version=" + currentInfos.Version + " r=" + r);
             return SearcherManager.GetSearcher(searcherFactory, r, old.GetIndexReader());
         }
+
+        private class ReaderDisposedistener : IReaderDisposedListener
+        {
+            private readonly Action onReaderDisposed;
+
+            public ReaderDisposedistener(Action onReaderDisposed)
+            {
+                this.onReaderDisposed = onReaderDisposed;
+            }
+            public void OnDispose(IndexReader reader)
+            {
+                onReaderDisposed();
+            }
+        }
         private void AddReaderClosedListener(IndexReader r)
         {
-            
-            IndexReader.CacheHelper cacheHelper = r.getReaderCacheHelper();
-            if (cacheHelper == null)
-            {
-                throw new IllegalStateException("StandardDirectoryReader must support caching");
-            }
-            openReaderCount.incrementAndGet();
-            cacheHelper.addClosedListener(
-                new IndexReader.ClosedListener() {
-                  @Override
-                          public void onClose(IndexReader.CacheKey cacheKey)
-            {
-                onReaderClosed();
-            }
-        });
+            throw new NotImplementedException();
+            //IndexReader.CacheHelper cacheHelper = r.GetReaderCacheHelper();
+            //if (cacheHelper == null)
+            //{
+            //    throw new IllegalStateException("StandardDirectoryReader must support caching");
+            //}
+            openReaderCount.IncrementAndGet();
+            r.AddReaderDisposedListener(new ReaderDisposedistener(() => OnReaderClosed());
+            //    cacheHelper.addClosedListener(
+            //        new IndexReader.ClosedListener() {
+            //          @Override
+            //                  public void onClose(IndexReader.CacheKey cacheKey)
+            //    {
+            //        onReaderClosed();
+            //    }
+            //});
         }
 
         /// <summary>

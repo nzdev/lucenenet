@@ -1,5 +1,6 @@
 ﻿using Lucene.Net.Support;
 using Lucene.Net.Support.IO;
+using Lucene.Net.Support.Threading;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -94,6 +95,13 @@ namespace Lucene.Net.Store
         public const int DEFAULT_READ_CHUNK_SIZE = 8192;
 
         protected readonly DirectoryInfo m_directory; // The underlying filesystem directory
+
+        /// <summary>
+        /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
+        /// delete that key.
+        /// </summary>
+        private readonly ISet<string> pendingDeletes =
+            Collections.newSetFromMap(new Dictionary<string, bool>());
 
         // LUCENENET specific: No such thing as "stale files" in .NET, since Flush(true) writes everything to disk before
         // our FileStream is disposed.
@@ -305,12 +313,12 @@ namespace Lucene.Net.Store
             {
                 //try
                 //{
-                    string name = GetTempFileName(prefix, suffix, nextTempFileCounter.GetAndIncrement());
-                    if (PendingDeletes.Contains(name))
-                    {
-                        continue;
-                    }
-                    return new FSIndexOutput(name, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW);
+                string name = GetTempFileName(prefix, suffix, nextTempFileCounter.GetAndIncrement());
+                if (PendingDeletes.Contains(name))
+                {
+                    continue;
+                }
+                return new FSIndexOutput(name, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW);
                 //}
                 //catch (
                 //    @SuppressWarnings("unused")
@@ -349,6 +357,94 @@ namespace Lucene.Net.Store
             // our FileStream is disposed.
             //m_staleFiles.Remove(name);
         }
+
+        /// <summary>
+        /// Try to delete any pending files that we had previously tried to delete but failed because we
+        /// are on Windows and the files were still held open.
+        /// </summary>
+        /// <exception cref="IOException"/>
+        public void DeletePendingFiles()
+        {
+            UninterruptableMonitor.Enter(this);
+            try
+            {
+                if (pendingDeletes.isEmpty() == false)
+                {
+
+                    // TODO: we could fix IndexInputs from FSDirectory subclasses to call this when they are
+                    // closed?
+
+                    // Clone the set since we mutate it in privateDeleteFile:
+                    foreach (string name in new HashSet<>(pendingDeletes))
+                    {
+                        PrivateDeleteFile(name, true);
+                    }
+                }
+            }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+
+        }
+        /// <exception cref="IOException"/>
+        private void MaybeDeletePendingFiles()
+        {
+            if (pendingDeletes.isEmpty() == false)
+            {
+                // This is a silly heuristic to try to avoid O(N^2), where N = number of files pending
+                // deletion, behaviour on Windows:
+                int count = opsSinceLastDelete.incrementAndGet();
+                if (count >= pendingDeletes.size())
+                {
+                    opsSinceLastDelete.addAndGet(-count);
+                    deletePendingFiles();
+                }
+            }
+        }
+        /// <exception cref="IOException"/>
+        private void PrivateDeleteFile(String name, bool isPendingDelete)
+        {
+            try
+            {
+                Files.delete(m_directory.resolve(name));
+                pendingDeletes.Remove(name);
+            }
+            catch (Exception e) when (e.IsNoSuchFileExceptionOrFileNotFoundException()) {
+                // We were asked to delete a non-existent file:
+                pendingDeletes.Remove(name);
+                if (isPendingDelete && Constants.WINDOWS)
+                {
+                    // TODO: can we remove this OS-specific hacky logic?  If windows deleteFile is buggy, we
+                    // should instead contain this workaround in
+                    // a WindowsFSDirectory ...
+                    // LUCENE-6684: we suppress this check for Windows, since a file could be in a confusing
+                    // "pending delete" state, failing the first
+                    // delete attempt with access denied and then apparently falsely failing here when we try ot
+                    // delete it again, with NSFE/FNFE
+                }
+                else
+                {
+                    throw e;
+                }
+            } catch (
+                //@SuppressWarnings("unused")
+                IOException ioe)
+            {
+                // On windows, a file delete can fail because there's still an open
+                // file handle against it.  We record this in pendingDeletes and
+                // try again later.
+
+                // TODO: this is hacky/lenient (we don't know which IOException this is), and
+                // it should only happen on filesystems that can do this, so really we should
+                // move this logic to WindowsDirectory or something
+
+                // TODO: can/should we do if (Constants.WINDOWS) here, else throw the exc?
+                // but what about a Linux box with a CIFS mount?
+                pendingDeletes.Add(name);
+            }
+        }
+
 
         /// <summary>
         /// Creates an <see cref="IndexOutput"/> for the file with the given name. </summary>
