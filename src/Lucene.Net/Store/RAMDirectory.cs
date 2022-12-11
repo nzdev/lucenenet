@@ -1,5 +1,6 @@
 ﻿using J2N.Collections.Generic.Extensions;
 using J2N.Threading.Atomic;
+using Lucene.Net.Index;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -44,8 +45,13 @@ namespace Lucene.Net.Store
     /// </summary>
     public class RAMDirectory : BaseDirectory
     {
-        protected internal readonly ConcurrentDictionary<string, RAMFile> m_fileMap = new ConcurrentDictionary<string, RAMFile>();
+        protected internal readonly ConcurrentDictionary<string, Lazy<RAMFile>> m_fileMap = new ConcurrentDictionary<string, Lazy<RAMFile>>();
         protected internal readonly AtomicInt64 m_sizeInBytes = new AtomicInt64(0);
+
+        /// <summary>
+        ///  Used to generate temp file names in <see cref="CreateTempOutput"/>
+        /// </summary>
+        private readonly AtomicInt64 nextTempFileCounter = new AtomicInt64();
 
         // *****
         // Lock acquisition sequence:  RAMDirectory, then RAMFile
@@ -138,11 +144,11 @@ namespace Lucene.Net.Store
         public override sealed long FileLength(string name)
         {
             EnsureOpen();
-            if (!m_fileMap.TryGetValue(name, out RAMFile file) || file is null)
+            if (!m_fileMap.TryGetValue(name, out Lazy<RAMFile> file) || file.Value is null)
             {
                 throw new FileNotFoundException(name);
             }
-            return file.Length;
+            return file.Value.Length;
         }
 
         /// <summary>
@@ -161,10 +167,10 @@ namespace Lucene.Net.Store
         public override void DeleteFile(string name)
         {
             EnsureOpen();
-            if (m_fileMap.TryRemove(name, out RAMFile file) && file != null)
+            if (m_fileMap.TryRemove(name, out Lazy<RAMFile> file) && file.Value != null)
             {
-                file.directory = null;
-                m_sizeInBytes.AddAndGet(-file.m_sizeInBytes);
+                file.Value.directory = null;
+                m_sizeInBytes.AddAndGet(-file.Value.m_sizeInBytes);
             }
             else
             {
@@ -178,13 +184,35 @@ namespace Lucene.Net.Store
         {
             EnsureOpen();
             RAMFile file = NewRAMFile();
-            if (m_fileMap.TryRemove(name, out RAMFile existing) && existing != null)
+            if (m_fileMap.TryRemove(name, out Lazy<RAMFile> existing) && existing.Value != null)
             {
-                m_sizeInBytes.AddAndGet(-existing.m_sizeInBytes);
-                existing.directory = null;
+                m_sizeInBytes.AddAndGet(-existing.Value.m_sizeInBytes);
+                existing.Value.directory = null;
             }
-            m_fileMap[name] = file;
+            m_fileMap[name] = new Lazy<RAMFile>(file);
             return new RAMOutputStream(file);
+        }
+
+        /// <exception cref="IOException"/>
+        public override IndexOutput CreateTempOutput(String prefix, String suffix, IOContext context)
+        {
+            EnsureOpen();
+
+            // Make the file first...
+            RAMFile file = NewRAMFile();
+
+            // ... then try to find a unique name for it:
+            while (true)
+            {
+                string name = IndexFileNames.SegmentFileName(prefix, suffix + "_" + string.Format("{0:X}", nextTempFileCounter.GetAndIncrement()), "tmp");
+
+                var factoryMethodCalled = false;
+                var tracker = m_fileMap.GetOrAdd(name, l => new Lazy<RAMFile>(() => { factoryMethodCalled = true; return file; })).Value;
+                if (!factoryMethodCalled && tracker != file)
+                {
+                    return new RAMOutputStream(name, file, true);
+                }
+            }
         }
 
         /// <summary>
@@ -206,11 +234,11 @@ namespace Lucene.Net.Store
         public override IndexInput OpenInput(string name, IOContext context)
         {
             EnsureOpen();
-            if (!m_fileMap.TryGetValue(name, out RAMFile file) || file is null)
+            if (!m_fileMap.TryGetValue(name, out Lazy<RAMFile> file) || file.Value is null)
             {
                 throw new FileNotFoundException(name);
             }
-            return new RAMInputStream(name, file);
+            return new RAMInputStream(name, file.Value);
         }
 
         /// <summary>
@@ -222,6 +250,11 @@ namespace Lucene.Net.Store
                 IsOpen = false;
                 m_fileMap.Clear();
             }
+        }
+
+        public override ISet<string> GetPendingDeletions()
+        {
+            return new HashSet<string>();
         }
     }
 }

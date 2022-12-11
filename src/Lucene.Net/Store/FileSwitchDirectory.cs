@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.ExceptionServices;
 using JCG = J2N.Collections.Generic;
 
@@ -174,6 +175,20 @@ namespace Lucene.Net.Store
             return GetDirectory(name).CreateOutput(name, context);
         }
 
+        /// <exception cref="IOException"/>
+        public override IndexOutput CreateTempOutput(string prefix, string suffix, IOContext context)
+        {
+            // this is best effort - it's ok to create a tmp file with any prefix and suffix. Yet if this
+            // file is then
+            // in-turn used to rename they must match to the same directory hence we use the full file-name
+            // to find
+            // the right directory. Here we can't make a decision but we need to ensure that all other
+            // operations
+            // map to the right directory.
+            string tmpFileName = GetTempFileName(prefix, suffix, 0);
+            return GetDirectory(tmpFileName).CreateTempOutput(prefix, suffix, context);
+        }
+
         public override void Sync(ICollection<string> names)
         {
             IList<string> primaryNames = new JCG.List<string>();
@@ -203,6 +218,30 @@ namespace Lucene.Net.Store
         public override IndexInputSlicer CreateSlicer(string name, IOContext context)
         {
             return GetDirectory(name).CreateSlicer(name, context);
+        }
+
+        /// <exception cref="IOException"/>
+        public override ISet<string> GetPendingDeletions()
+        {
+            ISet<string> primaryDeletions = primaryDir.GetPendingDeletions();
+            ISet<string> secondaryDeletions = secondaryDir.GetPendingDeletions();
+            if (!primaryDeletions.Any() && !secondaryDeletions.Any())
+            {
+                return new HashSet<string>();
+            }
+            else
+            {
+                HashSet<string> combined = new HashSet<string>();
+                foreach (string name in primaryDeletions)
+                {
+                    combined.Add(name);
+                }
+                foreach (var name in secondaryDeletions)
+                {
+                    combined.Add(name);
+                }
+                return combined;
+            }
         }
     }
 }
