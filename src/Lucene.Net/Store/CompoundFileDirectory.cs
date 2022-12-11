@@ -473,5 +473,8 @@ namespace Lucene.Net.Store
         {
             return "CompoundFileDirectory(file=\"" + fileName + "\" in dir=" + directory + ")";
         }
+
+        public override IndexOutput CreateTempOutput(string prefix, string suffix, IOContext context) => throw new NotImplementedException();
+        public override ISet<string> GetPendingDeletions() => throw new NotImplementedException();
     }
 }

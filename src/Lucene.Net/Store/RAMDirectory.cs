@@ -190,7 +190,7 @@ namespace Lucene.Net.Store
                 existing.Value.directory = null;
             }
             m_fileMap[name] = new Lazy<RAMFile>(file);
-            return new RAMOutputStream(file);
+            return new RAMOutputStream(name,file,true);
         }
 
         /// <exception cref="IOException"/>

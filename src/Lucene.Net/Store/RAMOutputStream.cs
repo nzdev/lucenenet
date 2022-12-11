@@ -45,11 +45,18 @@ namespace Lucene.Net.Store
         /// <summary>
         /// Construct an empty output buffer. </summary>
         public RAMOutputStream()
-            : this(new RAMFile())
+            : this("noname",new RAMFile(),false)
         {
         }
-
-        public RAMOutputStream(RAMFile f)
+        /// <summary>
+        /// Creates this, with no name
+        /// </summary>
+        public RAMOutputStream(RAMFile f, bool checksum)
+            : this("noname", f, checksum)
+        {
+        }
+        public RAMOutputStream(string name,RAMFile f,bool checksum)
+            :base("RAMOutputStream(name=\"" + name + "\")", name)
         {
             file = f;
 
@@ -57,6 +64,14 @@ namespace Lucene.Net.Store
             // first needed buffer lazily
             currentBufferIndex = -1;
             currentBuffer = null;
+            if (checksum)
+            {
+                crc = new BufferedChecksum(new CRC32());
+            }
+            else
+            {
+               // LUCENENET: Always crc; crc = null;
+            }
         }
 
         /// <summary>
@@ -115,7 +130,10 @@ namespace Lucene.Net.Store
             bufferStart = 0;
             bufferLength = 0;
             file.Length = 0;
-            crc.Reset();
+            if(crc != null)
+            {
+                crc.Reset();
+            }
         }
 
         protected override void Dispose(bool disposing)
@@ -156,14 +174,20 @@ namespace Lucene.Net.Store
                 currentBufferIndex++;
                 SwitchCurrentBuffer();
             }
-            crc.Update(b);
+            if(crc != null)
+            {
+                crc.Update(b);
+            }
             currentBuffer[bufferPosition++] = b;
         }
 
         public override void WriteBytes(byte[] b, int offset, int len)
         {
             if (Debugging.AssertsEnabled) Debugging.Assert(b != null);
-            crc.Update(b, offset, len);
+            if(crc != null)
+            {
+                crc.Update(b, offset, len);
+            }
             while (len > 0)
             {
                 if (bufferPosition == bufferLength)
@@ -220,6 +244,16 @@ namespace Lucene.Net.Store
             return (long)file.NumBuffers * (long)BUFFER_SIZE;
         }
 
-        public override long Checksum => crc.Value;
+        public override long Checksum
+        {
+            get
+            {
+                if(crc == null)
+                {
+                    throw IllegalStateException.Create("internal RAMOutputStream created with checksum disabled");
+                }
+                return crc.Value;
+            }
+        }
     }
 }
