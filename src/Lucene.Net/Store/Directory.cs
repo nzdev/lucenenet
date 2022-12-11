@@ -1,4 +1,6 @@
-﻿using Lucene.Net.Support;
+﻿using J2N;
+using Lucene.Net.Index;
+using Lucene.Net.Support;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -424,6 +426,17 @@ namespace Lucene.Net.Store
         /// @lucene.internal
         ///</remarks>
         /// <exception cref="IOException"/>
-        public abstract ISet<String> GetPendingDeletions();
+        public abstract ISet<string> GetPendingDeletions();
+
+        /// <summary>
+        /// Creates a file name for a temporary file. The name will start with {@code prefix}, end with
+        /// {@code suffix} and have a reserved file extension {@code .tmp}.
+        /// @see #createTempOutput(String, String, IOContext)
+        /// </summary>
+        protected static string GetTempFileName(string prefix, string suffix, long counter)
+        {
+            return IndexFileNames.SegmentFileName(
+                prefix, suffix + "_" + string.Format("{0:X}", counter), "tmp");
+        }
     }
 }

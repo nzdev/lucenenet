@@ -1,4 +1,5 @@
-﻿using Lucene.Net.Support;
+﻿using J2N.Threading.Atomic;
+using Lucene.Net.Support;
 using Lucene.Net.Support.IO;
 using Lucene.Net.Support.Threading;
 using System;
@@ -100,8 +101,14 @@ namespace Lucene.Net.Store
         /// Maps files that we are trying to delete (or we tried already but failed) before attempting to
         /// delete that key.
         /// </summary>
-        private readonly ISet<string> pendingDeletes =
-            Collections.newSetFromMap(new Dictionary<string, bool>());
+        private readonly ISet<string> pendingDeletes = new HashSet<string>();
+
+        private readonly AtomicInt32 opsSinceLastDelete = new AtomicInt32();
+
+        /// <summary>
+        /// Used to generate temp file names in <see cref="CreateTempOutput"/>
+        /// </summary>
+        private readonly AtomicInt64 nextTempFileCounter = new AtomicInt64();
 
         // LUCENENET specific: No such thing as "stale files" in .NET, since Flush(true) writes everything to disk before
         // our FileStream is disposed.
@@ -311,20 +318,20 @@ namespace Lucene.Net.Store
             MaybeDeletePendingFiles();
             while (true)
             {
-                //try
-                //{
-                string name = GetTempFileName(prefix, suffix, nextTempFileCounter.GetAndIncrement());
-                if (PendingDeletes.Contains(name))
+                try
                 {
-                    continue;
+                    string name = GetTempFileName(prefix, suffix, nextTempFileCounter.GetAndIncrement());
+                    if (pendingDeletes.Contains(name))
+                    {
+                        continue;
+                    }
+                    return new FSIndexOutput(this, name);//, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW);
                 }
-                return new FSIndexOutput(name, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW);
-                //}
-                //catch (
-                //    @SuppressWarnings("unused")
-                //      FileAlreadyExistsException faee) {
-                //    Retry with next incremented name
-                //}
+                catch (Exception faee) when (faee.IsNoSuchFileExceptionOrFileNotFoundException())
+                //@SuppressWarnings("unused")
+                {
+                    // Retry with next incremented name
+                }
             }
         }
 
@@ -368,14 +375,14 @@ namespace Lucene.Net.Store
             UninterruptableMonitor.Enter(this);
             try
             {
-                if (pendingDeletes.isEmpty() == false)
+                if (pendingDeletes.Any())
                 {
 
                     // TODO: we could fix IndexInputs from FSDirectory subclasses to call this when they are
                     // closed?
 
                     // Clone the set since we mutate it in privateDeleteFile:
-                    foreach (string name in new HashSet<>(pendingDeletes))
+                    foreach (string name in new HashSet<string>(pendingDeletes))
                     {
                         PrivateDeleteFile(name, true);
                     }
@@ -390,15 +397,15 @@ namespace Lucene.Net.Store
         /// <exception cref="IOException"/>
         private void MaybeDeletePendingFiles()
         {
-            if (pendingDeletes.isEmpty() == false)
+            if (pendingDeletes.Any())
             {
                 // This is a silly heuristic to try to avoid O(N^2), where N = number of files pending
                 // deletion, behaviour on Windows:
-                int count = opsSinceLastDelete.incrementAndGet();
-                if (count >= pendingDeletes.size())
+                int count = opsSinceLastDelete.IncrementAndGet();
+                if (count >= pendingDeletes.Count)
                 {
-                    opsSinceLastDelete.addAndGet(-count);
-                    deletePendingFiles();
+                    opsSinceLastDelete.AddAndGet(-count);
+                    DeletePendingFiles();
                 }
             }
         }
@@ -407,10 +414,11 @@ namespace Lucene.Net.Store
         {
             try
             {
-                Files.delete(m_directory.resolve(name));
+                System.IO.Directory.Delete(Path.Combine(m_directory.FullName, name), true);
                 pendingDeletes.Remove(name);
             }
-            catch (Exception e) when (e.IsNoSuchFileExceptionOrFileNotFoundException()) {
+            catch (Exception e) when (e.IsNoSuchFileExceptionOrFileNotFoundException())
+            {
                 // We were asked to delete a non-existent file:
                 pendingDeletes.Remove(name);
                 if (isPendingDelete && Constants.WINDOWS)
@@ -425,9 +433,10 @@ namespace Lucene.Net.Store
                 }
                 else
                 {
-                    throw e;
+                    throw;
                 }
-            } catch (
+            }
+            catch (
                 //@SuppressWarnings("unused")
                 IOException ioe)
             {
@@ -599,8 +608,8 @@ namespace Lucene.Net.Store
             private volatile bool isOpen; // remember if the file is open, so that we don't try to close it more than once
             private readonly CRC32 crc = new CRC32();
 
-            public FSIndexOutput(FSDirectory parent, string name, string resourceDescription, string rname)
-                : base(CHUNK_SIZE, null, resourceDescription, rname)
+            public FSIndexOutput(FSDirectory parent, string name)
+                : this(CHUNK_SIZE, name, parent)
             {
                 this.parent = parent;
                 this.name = name;
@@ -611,6 +620,12 @@ namespace Lucene.Net.Store
                     share: FileShare.ReadWrite,
                     bufferSize: CHUNK_SIZE);
                 isOpen = true;
+            }
+
+            protected FSIndexOutput(int chunkSize, string name, FSDirectory parent)
+                : base(chunkSize, "FSIndexOutput(path=\"" + Path.Combine(parent.m_directory.FullName, name) + "\")", name)
+            {
+
             }
 
             /// <inheritdoc/>
@@ -716,5 +731,27 @@ namespace Lucene.Net.Store
         //{
         //    IOUtils.Fsync(Path.Combine(m_directory.FullName, name), false);
         //}
+
+        /// <exception cref="IOException"/>
+        public override ISet<string> GetPendingDeletions()
+        {
+            UninterruptableMonitor.Enter(this);
+            try
+            {
+                DeletePendingFiles();
+                if (!pendingDeletes.Any())
+                {
+                    return new HashSet<string>();
+                }
+                else
+                {
+                    return new HashSet<string>(pendingDeletes);
+                }
+            }
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
+        }
     }
 }
