@@ -1,4 +1,5 @@
 ﻿using Lucene.Net.Diagnostics;
+using Lucene.Net.Search;
 using Lucene.Net.Support;
 using Lucene.Net.Support.Threading;
 using Lucene.Net.Util;
@@ -102,9 +103,17 @@ namespace Lucene.Net.Search
         /// The <see cref="Similarities.Similarity"/> implementation used by this searcher. </summary>
         private Similarity similarity = defaultSimilarity;
 
-        /// <summary>
-        /// Creates a searcher searching the provided index. </summary>
-        public IndexSearcher(IndexReader r)
+        private static IQueryCachingPolicy DEFAULT_CACHING_POLICY = new UsageTrackingQueryCachingPolicy();
+        private static readonly int maxCachedQueries = 1000;
+        // min of 32MB or 5% of the heap size
+        readonly long maxRamBytesUsed = Math.Min(1L << 25, Runtime.GetRuntime().MaxMemory() / 20);
+
+        private static IQueryCache DEFAULT_QUERY_CACHE = new LRUQueryCache(maxCachedQueries, maxRamBytesUsed);
+    }
+
+    /// <summary>
+    /// Creates a searcher searching the provided index. </summary>
+    public IndexSearcher(IndexReader r)
             : this(r, null)
         {
         }
@@ -216,6 +225,22 @@ namespace Lucene.Net.Search
         }
 
         /// <summary>
+        /// Expert: called to re-write queries into primitive queries.
+        /// </summary>
+        /// <exception cref="BooleanQuery.TooManyClauses">If a query would exceed <see cref="BooleanQuery.MaxClauseCount"/> clauses.</exception>
+        /// <exception cref="IOException"/>
+        public Query Rewrite(Query original)
+        {
+            Query query = original;
+            for (Query rewrittenQuery = query.Rewrite(reader); rewrittenQuery != query;
+                 rewrittenQuery = query.Rewrite(reader))
+            {
+                query = rewrittenQuery;
+            }
+            return query;
+        }
+
+        /// <summary>
         /// Count how many documents match the given query. May be faster than counting number of hits by
         /// collecting all matches, as the number of hits is retrieved from the index statistics when
         /// possible.
@@ -223,7 +248,62 @@ namespace Lucene.Net.Search
         /// <exception cref="IOException"/>
         public int Count(Query query)
         {
-            return Search(new ConstantScoreQuery(query), new TotalHitCountCollectorManager());
+
+            query = Rewrite(query);
+            while (true)
+            {
+                // remove wrappers that don't matter for counts
+                if (query is ConstantScoreQuery)
+                {
+                    query = ((ConstantScoreQuery)query).Query;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // some counts can be computed in constant time
+            if (query is MatchAllDocsQuery)
+            {
+                return reader.NumDocs;
+            }
+            else if (query is TermQuery && reader.HasDeletions == false)
+            {
+                Term term = ((TermQuery)query).Term;
+                int count = 0;
+                // foreach (LeafReaderContext leaf in reader.Leaves) // LUCENENET: LeafReaderContext not available till V6
+                foreach (AtomicReaderContext leaf in reader.Leaves)
+                {
+                    count += leaf.Reader.DocFreq(term);
+                }
+                return count;
+            }
+
+
+            // general case: create a collecor and count matches
+            CollectorManager<TotalHitCountCollector, int> collectorManager = new CountCollectorManager();
+            return Search(query, collectorManager);
+        }
+
+        /// <exception cref="IOException"/>
+        private class CountCollectorManager : CollectorManager<TotalHitCountCollector, int>
+        {
+            public TotalHitCountCollector NewCollector()
+            {
+                return new TotalHitCountCollector();
+            }
+
+            /// <exception cref="IOException"/>
+            public int Reduce(ICollection<TotalHitCountCollector> collectors)
+            {
+                int total = 0;
+                foreach (TotalHitCountCollector collector in collectors)
+                {
+                    total += collector.TotalHits;
+                }
+                return total;
+            }
         }
 
         /// <summary>
@@ -654,341 +734,451 @@ namespace Lucene.Net.Search
             }
         }
 
-        /// <summary>
-        /// Expert: called to re-write queries into primitive queries. </summary>
-        /// <exception cref="BooleanQuery.TooManyClausesException"> If a query would exceed
-        ///         <see cref="BooleanQuery.MaxClauseCount"/> clauses. </exception>
-        public virtual Query Rewrite(Query original)
+        /**
+  * Lower-level search API.
+  * Search all leaves using the given {@link CollectorManager}. In contrast
+  * to {@link #search(Query, Collector)}, this method will use the searcher's
+  * {@link ExecutorService} in order to parallelize execution of the collection
+  * on the configured {@link #leafSlices}.
+  * @see CollectorManager
+  * @lucene.experimental
+  */
+        /// <exception cref="IOException"/>
+        public T Search<C, T>(Query query, CollectorManager<C, T> collectorManager) where C : ICollector
         {
-            Query query = original;
-            for (Query rewrittenQuery = query.Rewrite(reader); rewrittenQuery != query; rewrittenQuery = query.Rewrite(reader))
+            if (executor == null)
             {
-                query = rewrittenQuery;
-            }
-            return query;
-        }
-
-        /// <summary>
-        /// Returns an <see cref="Explanation"/> that describes how <paramref name="doc"/> scored against
-        /// <paramref name="query"/>.
-        ///
-        /// <para/>This is intended to be used in developing <see cref="Similarities.Similarity"/> implementations,
-        /// and, for good performance, should not be displayed with every hit.
-        /// Computing an explanation is as expensive as executing the query over the
-        /// entire index.
-        /// </summary>
-        public virtual Explanation Explain(Query query, int doc)
-        {
-            return Explain(CreateNormalizedWeight(query), doc);
-        }
-
-        /// <summary>
-        /// Expert: low-level implementation method
-        /// Returns an <see cref="Explanation"/> that describes how <paramref name="doc"/> scored against
-        /// <paramref name="weight"/>.
-        ///
-        /// <para/>This is intended to be used in developing <see cref="Similarities.Similarity"/> implementations,
-        /// and, for good performance, should not be displayed with every hit.
-        /// Computing an explanation is as expensive as executing the query over the
-        /// entire index.
-        /// <para/>Applications should call <see cref="IndexSearcher.Explain(Query, int)"/>. </summary>
-        /// <exception cref="BooleanQuery.TooManyClausesException"> If a query would exceed
-        ///         <see cref="BooleanQuery.MaxClauseCount"/> clauses. </exception>
-        protected virtual Explanation Explain(Weight weight, int doc)
-        {
-            int n = ReaderUtil.SubIndex(doc, m_leafContexts);
-            AtomicReaderContext ctx = m_leafContexts[n];
-            int deBasedDoc = doc - ctx.DocBase;
-
-            return weight.Explain(ctx, deBasedDoc);
-        }
-
-        /// <summary>
-        /// Creates a normalized weight for a top-level <see cref="Query"/>.
-        /// The query is rewritten by this method and <see cref="Query.CreateWeight(IndexSearcher)"/> called,
-        /// afterwards the <see cref="Weight"/> is normalized. The returned <see cref="Weight"/>
-        /// can then directly be used to get a <see cref="Scorer"/>.
-        /// <para/>
-        /// @lucene.internal
-        /// </summary>
-        public virtual Weight CreateNormalizedWeight(Query query)
-        {
-            query = Rewrite(query);
-            Weight weight = query.CreateWeight(this);
-            float v = weight.GetValueForNormalization();
-            float norm = Similarity.QueryNorm(v);
-            if (float.IsInfinity(norm) || float.IsNaN(norm))
-            {
-                norm = 1.0f;
-            }
-            weight.Normalize(norm, 1.0f);
-            return weight;
-        }
-
-        /// <summary>
-        /// Returns this searchers the top-level <see cref="IndexReaderContext"/>. </summary>
-        /// <seealso cref="IndexReader.Context"/>
-        /* sugar for #getReader().getTopReaderContext() */
-
-        public virtual IndexReaderContext TopReaderContext => m_readerContext;
-
-        /// <summary>
-        /// A thread subclass for searching a single searchable
-        /// </summary>
-        private sealed class SearcherCallableNoSort // LUCENENET: no need for ICallable<V> interface
-        {
-            private readonly ReentrantLock @lock;
-            private readonly IndexSearcher searcher;
-            private readonly Weight weight;
-            private readonly ScoreDoc after;
-            private readonly int nDocs;
-            private readonly HitQueue hq;
-            private readonly LeafSlice slice;
-
-            public SearcherCallableNoSort(ReentrantLock @lock, IndexSearcher searcher, LeafSlice slice, Weight weight, ScoreDoc after, int nDocs, HitQueue hq)
-            {
-                this.@lock = @lock;
-                this.searcher = searcher;
-                this.weight = weight;
-                this.after = after;
-                this.nDocs = nDocs;
-                this.hq = hq;
-                this.slice = slice;
-            }
-
-            public TopDocs Call()
-            {
-                TopDocs docs = searcher.Search(slice.Leaves, weight, after, nDocs);
-                ScoreDoc[] scoreDocs = docs.ScoreDocs;
-                //it would be so nice if we had a thread-safe insert
-                @lock.Lock();
-                try
-                {
-                    for (int j = 0; j < scoreDocs.Length; j++) // merge scoreDocs into hq
-                    {
-                        ScoreDoc scoreDoc = scoreDocs[j];
-                        if (scoreDoc == hq.InsertWithOverflow(scoreDoc))
-                        {
-                            break;
-                        }
-                    }
-                }
-                finally
-                {
-                    @lock.Unlock();
-                }
-                return docs;
-            }
-        }
-
-        /// <summary>
-        /// A thread subclass for searching a single searchable
-        /// </summary>
-        private sealed class SearcherCallableWithSort // LUCENENET: no need for ICallable<V> interface
-        {
-            private readonly ReentrantLock @lock;
-            private readonly IndexSearcher searcher;
-            private readonly Weight weight;
-            private readonly int nDocs;
-            private readonly TopFieldCollector hq;
-            private readonly Sort sort;
-            private readonly LeafSlice slice;
-            private readonly FieldDoc after;
-            private readonly bool doDocScores;
-            private readonly bool doMaxScore;
-
-            public SearcherCallableWithSort(ReentrantLock @lock, IndexSearcher searcher, LeafSlice slice, Weight weight, FieldDoc after, int nDocs, TopFieldCollector hq, Sort sort, bool doDocScores, bool doMaxScore)
-            {
-                this.@lock = @lock;
-                this.searcher = searcher;
-                this.weight = weight;
-                this.nDocs = nDocs;
-                this.hq = hq;
-                this.sort = sort;
-                this.slice = slice;
-                this.after = after;
-                this.doDocScores = doDocScores;
-                this.doMaxScore = doMaxScore;
-            }
-
-            private readonly FakeScorer fakeScorer = new FakeScorer();
-
-            public TopFieldDocs Call()
-            {
-                if (Debugging.AssertsEnabled) Debugging.Assert(slice.Leaves.Length == 1);
-                TopFieldDocs docs = searcher.Search(slice.Leaves, weight, after, nDocs, sort, true, doDocScores || sort.NeedsScores, doMaxScore);
-                @lock.Lock();
-                try
-                {
-                    AtomicReaderContext ctx = slice.Leaves[0];
-                    int @base = ctx.DocBase;
-                    hq.SetNextReader(ctx);
-                    hq.SetScorer(fakeScorer);
-                    foreach (ScoreDoc scoreDoc in docs.ScoreDocs)
-                    {
-                        fakeScorer.doc = scoreDoc.Doc - @base;
-                        fakeScorer.score = scoreDoc.Score;
-                        hq.Collect(scoreDoc.Doc - @base);
-                    }
-
-                    // Carry over maxScore from sub:
-                    // LUCENENET specific - compare bits rather than using equality operators to prevent these comparisons from failing in x86 in .NET Framework with optimizations enabled
-                    if (doMaxScore && NumericUtils.SingleToSortableInt32(docs.MaxScore) > NumericUtils.SingleToSortableInt32(hq.maxScore))
-                    {
-                        hq.maxScore = docs.MaxScore;
-                    }
-                }
-                finally
-                {
-                    @lock.Unlock();
-                }
-                return docs;
-            }
-        }
-
-        /// <summary>
-        /// A helper class that wraps a <see cref="TaskSchedulerCompletionService{T}"/> and provides an
-        /// iterable interface to the completed <see cref="Func{T}"/> delegates.
-        /// </summary>
-        /// <typeparam name="T">the type of the <see cref="Func{T}"/> return value</typeparam>
-        private sealed class ExecutionHelper<T> : IEnumerator<T>, IEnumerable<T>
-        {
-            private readonly TaskSchedulerCompletionService<T> service;
-            private int numTasks;
-            private T current;
-
-            internal ExecutionHelper(TaskScheduler executor)
-            {
-                this.service = new TaskSchedulerCompletionService<T>(executor);
-            }
-
-            public T Current => current;
-
-            object IEnumerator.Current => current;
-
-            public void Dispose()
-            {
-                // LUCENENET: Intentionally blank
-            }
-
-            public void Submit(Func<T> task)
-            {
-                this.service.Submit(task);
-                ++numTasks;
-            }
-
-            public void Reset()
-            {
-                throw UnsupportedOperationException.Create();
-            }
-
-            public bool MoveNext()
-            {
-                if (numTasks > 0)
-                {
-                    try
-                    {
-                        var awaitable = service.Take();
-                        awaitable.Wait();
-                        current = awaitable.Result;
-
-                        return true;
-                    }
-                    catch (Exception e) when (e.IsInterruptedException())
-                    {
-                        throw new Util.ThreadInterruptedException(e);
-                    }
-                    catch (Exception e)
-                    {
-                        throw RuntimeException.Create(e);
-                    }
-                    finally
-                    {
-                        --numTasks;
-                    }
-                }
-
-                return false;
-            }
-
-            // LUCENENET NOTE: Remove() excluded because it is not applicable in .NET
-
-            public IEnumerator<T> GetEnumerator()
-            {
-                // use the shortcut here - this is only used in a private context
-                return this;
-            }
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return this;
-            }
-        }
-
-        /// <summary>
-        /// A class holding a subset of the <see cref="IndexSearcher"/>s leaf contexts to be
-        /// executed within a single thread.
-        /// <para/>
-        /// @lucene.experimental
-        /// </summary>
-        public class LeafSlice
-        {
-            internal AtomicReaderContext[] Leaves { get; private set; }
-
-            public LeafSlice(params AtomicReaderContext[] leaves)
-            {
-                this.Leaves = leaves;
-            }
-        }
-
-        public override string ToString()
-        {
-            return "IndexSearcher(" + reader + "; executor=" + executor + ")";
-        }
-
-        /// <summary>
-        /// Returns <see cref="Search.TermStatistics"/> for a term.
-        /// <para/>
-        /// This can be overridden for example, to return a term's statistics
-        /// across a distributed collection.
-        /// <para/>
-        /// @lucene.experimental
-        /// </summary>
-        public virtual TermStatistics TermStatistics(Term term, TermContext context)
-        {
-            return new TermStatistics(term.Bytes, context.DocFreq, context.TotalTermFreq);
-        }
-
-        /// <summary>
-        /// Returns <see cref="Search.CollectionStatistics"/> for a field.
-        /// <para/>
-        /// This can be overridden for example, to return a field's statistics
-        /// across a distributed collection.
-        /// <para/>
-        /// @lucene.experimental
-        /// </summary>
-        public virtual CollectionStatistics CollectionStatistics(string field)
-        {
-            int docCount;
-            long sumTotalTermFreq;
-            long sumDocFreq;
-
-            if (Debugging.AssertsEnabled) Debugging.Assert(field != null);
-
-            Terms terms = MultiFields.GetTerms(reader, field);
-            if (terms is null)
-            {
-                docCount = 0;
-                sumTotalTermFreq = 0;
-                sumDocFreq = 0;
+                C collector = collectorManager.NewCollector();
+                Search(query, collector);
+                return collectorManager.Reduce(new List<C>() { collector });
             }
             else
             {
-                docCount = terms.DocCount;
-                sumTotalTermFreq = terms.SumTotalTermFreq;
-                sumDocFreq = terms.SumDocFreq;
-            }
-            return new CollectionStatistics(field, reader.MaxDoc, docCount, sumTotalTermFreq, sumDocFreq);
+                List<C> collectors = new List<C>(leafSlices.length);
+                bool needsScores = false;
+                for (int i = 0; i < leafSlices.length; ++i)
+                {
+                    C collector = collectorManager.newCollector();
+                    collectors.Add(collector);
+                    needsScores |= collector.needsScores();
+                }
+
+                Weight weight = CreateNormalizedWeight(query, needsScores);
+                List<Func<C>> topDocsFutures = new List<Func<C>>(leafSlices.length);
+                for (int i = 0; i < leafSlices.length; ++i)
+                {
+                    //LeafReaderContext[] leaves = leafSlices[i].leaves; // LUCENENET: LeafReaderContext unavailable to v6
+                    AtomicReaderContext[] leaves = leafSlices[i].leaves;
+                    C collector = collectors.get(i);
+                    topDocsFutures.Add(executor.Submit(new Callable<C>()
+                    {
+
+        /// <exception cref="IOException"/>
+          public override C call()
+        {
+            Search(Arrays.asList(leaves), weight, collector);
+            return collector;
         }
+    }));
+      }
+
+List<C> collectedCollectors = new ArrayList<>();
+foreach (Func<C> future in topDocsFutures)
+{
+    try
+    {
+        collectedCollectors.Add(future.get());
+    }
+    catch (InterruptedException e)
+    {
+        throw new ThreadInterruptedException(e);
+    }
+    catch (ExecutionException e)
+    {
+        throw new RuntimeException(e);
+    }
+}
+
+return collectorManager.Reduce(collectors);
+    }
+  }
+
+
+ /**
+   * Creates a normalized weight for a top-level {@link Query}.
+   * The query is rewritten by this method and {@link Query#createWeight} called,
+   * afterwards the {@link Weight} is normalized. The returned {@code Weight}
+   * can then directly be used to get a {@link Scorer}.
+   * @lucene.internal
+   */
+ /// <exception cref="IOException"/>
+  public Weight CreateNormalizedWeight(Query query, bool needsScores)
+{
+    query = Rewrite(query);
+    Weight weight = CreateWeight(query, needsScores);
+    float v = weight.GetValueForNormalization();
+    float norm = GetSimilarity(needsScores).queryNorm(v);
+    if (float.IsInfinity(norm) || float.IsNaN(norm))
+    {
+        norm = 1.0f;
+    }
+    weight.Normalize(norm, 1.0f);
+    return weight;
+}
+
+/// <summary>
+/// Creates a {@link Weight} for the given query, potentially adding caching
+/// if possible and configured.
+/// </summary>
+/// <remarks>
+/// @lucene.experimental
+/// </remarks>
+/// <exception cref="IOException"/>
+public Weight CreateWeight(Query query, bool needsScores)
+{
+    IQueryCache queryCache = this.queryCache;
+    Weight weight = query.CreateWeight(this, needsScores);
+    if (needsScores == false && queryCache != null)
+    {
+        weight = queryCache.doCache(weight, queryCachingPolicy);
+    }
+    return weight;
+}
+/// <summary>
+/// Expert: called to re-write queries into primitive queries. </summary>
+/// <exception cref="BooleanQuery.TooManyClausesException"> If a query would exceed <see cref="BooleanQuery.MaxClauseCount"/> clauses.</exception>
+/// <exception cref="IOException"/>
+public virtual Query Rewrite(Query original)
+{
+    Query query = original;
+    for (Query rewrittenQuery = query.Rewrite(reader); rewrittenQuery != query; rewrittenQuery = query.Rewrite(reader))
+    {
+        query = rewrittenQuery;
+    }
+    return query;
+}
+
+/// <summary>
+/// Returns an <see cref="Explanation"/> that describes how <paramref name="doc"/> scored against
+/// <paramref name="query"/>.
+///
+/// <para/>This is intended to be used in developing <see cref="Similarities.Similarity"/> implementations,
+/// and, for good performance, should not be displayed with every hit.
+/// Computing an explanation is as expensive as executing the query over the
+/// entire index.
+/// </summary>
+public virtual Explanation Explain(Query query, int doc)
+{
+    return Explain(CreateNormalizedWeight(query), doc);
+}
+
+/// <summary>
+/// Expert: low-level implementation method
+/// Returns an <see cref="Explanation"/> that describes how <paramref name="doc"/> scored against
+/// <paramref name="weight"/>.
+///
+/// <para/>This is intended to be used in developing <see cref="Similarities.Similarity"/> implementations,
+/// and, for good performance, should not be displayed with every hit.
+/// Computing an explanation is as expensive as executing the query over the
+/// entire index.
+/// <para/>Applications should call <see cref="IndexSearcher.Explain(Query, int)"/>. </summary>
+/// <exception cref="BooleanQuery.TooManyClausesException"> If a query would exceed
+///         <see cref="BooleanQuery.MaxClauseCount"/> clauses. </exception>
+protected virtual Explanation Explain(Weight weight, int doc)
+{
+    int n = ReaderUtil.SubIndex(doc, m_leafContexts);
+    AtomicReaderContext ctx = m_leafContexts[n];
+    int deBasedDoc = doc - ctx.DocBase;
+
+    return weight.Explain(ctx, deBasedDoc);
+}
+
+/// <summary>
+/// Creates a normalized weight for a top-level <see cref="Query"/>.
+/// The query is rewritten by this method and <see cref="Query.CreateWeight(IndexSearcher)"/> called,
+/// afterwards the <see cref="Weight"/> is normalized. The returned <see cref="Weight"/>
+/// can then directly be used to get a <see cref="Scorer"/>.
+/// <para/>
+/// @lucene.internal
+/// </summary>
+public virtual Weight CreateNormalizedWeight(Query query)
+{
+    query = Rewrite(query);
+    Weight weight = query.CreateWeight(this);
+    float v = weight.GetValueForNormalization();
+    float norm = Similarity.QueryNorm(v);
+    if (float.IsInfinity(norm) || float.IsNaN(norm))
+    {
+        norm = 1.0f;
+    }
+    weight.Normalize(norm, 1.0f);
+    return weight;
+}
+
+/// <summary>
+/// Returns this searchers the top-level <see cref="IndexReaderContext"/>. </summary>
+/// <seealso cref="IndexReader.Context"/>
+/* sugar for #getReader().getTopReaderContext() */
+
+public virtual IndexReaderContext TopReaderContext => m_readerContext;
+
+/// <summary>
+/// A thread subclass for searching a single searchable
+/// </summary>
+private sealed class SearcherCallableNoSort // LUCENENET: no need for ICallable<V> interface
+{
+    private readonly ReentrantLock @lock;
+    private readonly IndexSearcher searcher;
+    private readonly Weight weight;
+    private readonly ScoreDoc after;
+    private readonly int nDocs;
+    private readonly HitQueue hq;
+    private readonly LeafSlice slice;
+
+    public SearcherCallableNoSort(ReentrantLock @lock, IndexSearcher searcher, LeafSlice slice, Weight weight, ScoreDoc after, int nDocs, HitQueue hq)
+    {
+        this.@lock = @lock;
+        this.searcher = searcher;
+        this.weight = weight;
+        this.after = after;
+        this.nDocs = nDocs;
+        this.hq = hq;
+        this.slice = slice;
+    }
+
+    public TopDocs Call()
+    {
+        TopDocs docs = searcher.Search(slice.Leaves, weight, after, nDocs);
+        ScoreDoc[] scoreDocs = docs.ScoreDocs;
+        //it would be so nice if we had a thread-safe insert
+        @lock.Lock();
+        try
+        {
+            for (int j = 0; j < scoreDocs.Length; j++) // merge scoreDocs into hq
+            {
+                ScoreDoc scoreDoc = scoreDocs[j];
+                if (scoreDoc == hq.InsertWithOverflow(scoreDoc))
+                {
+                    break;
+                }
+            }
+        }
+        finally
+        {
+            @lock.Unlock();
+        }
+        return docs;
+    }
+}
+
+/// <summary>
+/// A thread subclass for searching a single searchable
+/// </summary>
+private sealed class SearcherCallableWithSort // LUCENENET: no need for ICallable<V> interface
+{
+    private readonly ReentrantLock @lock;
+    private readonly IndexSearcher searcher;
+    private readonly Weight weight;
+    private readonly int nDocs;
+    private readonly TopFieldCollector hq;
+    private readonly Sort sort;
+    private readonly LeafSlice slice;
+    private readonly FieldDoc after;
+    private readonly bool doDocScores;
+    private readonly bool doMaxScore;
+
+    public SearcherCallableWithSort(ReentrantLock @lock, IndexSearcher searcher, LeafSlice slice, Weight weight, FieldDoc after, int nDocs, TopFieldCollector hq, Sort sort, bool doDocScores, bool doMaxScore)
+    {
+        this.@lock = @lock;
+        this.searcher = searcher;
+        this.weight = weight;
+        this.nDocs = nDocs;
+        this.hq = hq;
+        this.sort = sort;
+        this.slice = slice;
+        this.after = after;
+        this.doDocScores = doDocScores;
+        this.doMaxScore = doMaxScore;
+    }
+
+    private readonly FakeScorer fakeScorer = new FakeScorer();
+
+    public TopFieldDocs Call()
+    {
+        if (Debugging.AssertsEnabled) Debugging.Assert(slice.Leaves.Length == 1);
+        TopFieldDocs docs = searcher.Search(slice.Leaves, weight, after, nDocs, sort, true, doDocScores || sort.NeedsScores, doMaxScore);
+        @lock.Lock();
+        try
+        {
+            AtomicReaderContext ctx = slice.Leaves[0];
+            int @base = ctx.DocBase;
+            hq.SetNextReader(ctx);
+            hq.SetScorer(fakeScorer);
+            foreach (ScoreDoc scoreDoc in docs.ScoreDocs)
+            {
+                fakeScorer.doc = scoreDoc.Doc - @base;
+                fakeScorer.score = scoreDoc.Score;
+                hq.Collect(scoreDoc.Doc - @base);
+            }
+
+            // Carry over maxScore from sub:
+            // LUCENENET specific - compare bits rather than using equality operators to prevent these comparisons from failing in x86 in .NET Framework with optimizations enabled
+            if (doMaxScore && NumericUtils.SingleToSortableInt32(docs.MaxScore) > NumericUtils.SingleToSortableInt32(hq.maxScore))
+            {
+                hq.maxScore = docs.MaxScore;
+            }
+        }
+        finally
+        {
+            @lock.Unlock();
+        }
+        return docs;
+    }
+}
+
+/// <summary>
+/// A helper class that wraps a <see cref="TaskSchedulerCompletionService{T}"/> and provides an
+/// iterable interface to the completed <see cref="Func{T}"/> delegates.
+/// </summary>
+/// <typeparam name="T">the type of the <see cref="Func{T}"/> return value</typeparam>
+private sealed class ExecutionHelper<T> : IEnumerator<T>, IEnumerable<T>
+{
+    private readonly TaskSchedulerCompletionService<T> service;
+    private int numTasks;
+    private T current;
+
+    internal ExecutionHelper(TaskScheduler executor)
+    {
+        this.service = new TaskSchedulerCompletionService<T>(executor);
+    }
+
+    public T Current => current;
+
+    object IEnumerator.Current => current;
+
+    public void Dispose()
+    {
+        // LUCENENET: Intentionally blank
+    }
+
+    public void Submit(Func<T> task)
+    {
+        this.service.Submit(task);
+        ++numTasks;
+    }
+
+    public void Reset()
+    {
+        throw UnsupportedOperationException.Create();
+    }
+
+    public bool MoveNext()
+    {
+        if (numTasks > 0)
+        {
+            try
+            {
+                var awaitable = service.Take();
+                awaitable.Wait();
+                current = awaitable.Result;
+
+                return true;
+            }
+            catch (Exception e) when (e.IsInterruptedException())
+            {
+                throw new Util.ThreadInterruptedException(e);
+            }
+            catch (Exception e)
+            {
+                throw RuntimeException.Create(e);
+            }
+            finally
+            {
+                --numTasks;
+            }
+        }
+
+        return false;
+    }
+
+    // LUCENENET NOTE: Remove() excluded because it is not applicable in .NET
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        // use the shortcut here - this is only used in a private context
+        return this;
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return this;
+    }
+}
+
+/// <summary>
+/// A class holding a subset of the <see cref="IndexSearcher"/>s leaf contexts to be
+/// executed within a single thread.
+/// <para/>
+/// @lucene.experimental
+/// </summary>
+public class LeafSlice
+{
+    internal AtomicReaderContext[] Leaves { get; private set; }
+
+    public LeafSlice(params AtomicReaderContext[] leaves)
+    {
+        this.Leaves = leaves;
+    }
+}
+
+public override string ToString()
+{
+    return "IndexSearcher(" + reader + "; executor=" + executor + ")";
+}
+
+/// <summary>
+/// Returns <see cref="Search.TermStatistics"/> for a term.
+/// <para/>
+/// This can be overridden for example, to return a term's statistics
+/// across a distributed collection.
+/// <para/>
+/// @lucene.experimental
+/// </summary>
+public virtual TermStatistics TermStatistics(Term term, TermContext context)
+{
+    return new TermStatistics(term.Bytes, context.DocFreq, context.TotalTermFreq);
+}
+
+/// <summary>
+/// Returns <see cref="Search.CollectionStatistics"/> for a field.
+/// <para/>
+/// This can be overridden for example, to return a field's statistics
+/// across a distributed collection.
+/// <para/>
+/// @lucene.experimental
+/// </summary>
+public virtual CollectionStatistics CollectionStatistics(string field)
+{
+    int docCount;
+    long sumTotalTermFreq;
+    long sumDocFreq;
+
+    if (Debugging.AssertsEnabled) Debugging.Assert(field != null);
+
+    Terms terms = MultiFields.GetTerms(reader, field);
+    if (terms is null)
+    {
+        docCount = 0;
+        sumTotalTermFreq = 0;
+        sumDocFreq = 0;
+    }
+    else
+    {
+        docCount = terms.DocCount;
+        sumTotalTermFreq = terms.SumTotalTermFreq;
+        sumDocFreq = terms.SumDocFreq;
+    }
+    return new CollectionStatistics(field, reader.MaxDoc, docCount, sumTotalTermFreq, sumDocFreq);
+}
     }
 }
