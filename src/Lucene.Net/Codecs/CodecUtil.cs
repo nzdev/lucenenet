@@ -1,4 +1,5 @@
 ﻿using Lucene.Net.Diagnostics;
+using Lucene.Net.Index;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
 using System;
@@ -273,6 +274,45 @@ namespace Lucene.Net.Codecs
             if (Debugging.AssertsEnabled) Debugging.Assert(@in.Position == 0); // LUCENENET specific: Renamed from getFilePointer() to match FileStream
             @in.Seek(@in.Length - FooterLength());
             return CheckFooter(@in);
+        }
+
+        /// <summary>
+        /// Retrieves the full index header from the provided {@link IndexInput}.
+        /// This throws {@link CorruptIndexException} if this file does
+        /// not appear to be an index file. 
+        /// </summary>
+        /// <exception cref="IOException"/>
+        public static byte[] ReadIndexHeader(IndexInput @in)
+        {
+            @in.Seek(0);
+            /*final*/
+            int actualHeader = @in.ReadInt32();
+            if (actualHeader != CODEC_MAGIC)
+            {
+                throw new CorruptIndexException("codec header mismatch: actual header=" + actualHeader + " vs expected header=" + CODEC_MAGIC, @in);
+            }
+            String codec = @in.ReadString();
+            @in.ReadInt32();
+            @in.Seek(@in.GetFilePointer() + StringHelper.ID_LENGTH);
+            int suffixLength = @in.ReadByte() & 0xFF;
+            byte[] bytes = new byte[HeaderLength(codec) + StringHelper.ID_LENGTH + 1 + suffixLength];
+            @in.Seek(0);
+            @in.ReadBytes(bytes, 0, bytes.Length);
+            return bytes;
+        }
+
+        /** Retrieves the full footer from the provided {@link IndexInput}.  This throws
+         *  {@link CorruptIndexException} if this file does not have a valid footer. */
+        /// <exception cref="IOException"/>
+        public static byte[] ReadFooter(IndexInput @in)
+        {
+            @in.Seek(@in.Length - FooterLength());
+            ValidateFooter(@in);
+            @in.Seek(@in.Length - FooterLength());
+            byte[]
+            bytes = new byte[FooterLength()];
+            @in.ReadBytes(bytes, 0, bytes.Length);
+            return bytes;
         }
     }
 }

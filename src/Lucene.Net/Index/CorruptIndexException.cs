@@ -1,3 +1,4 @@
+﻿using Lucene.Net.Store;
 using System;
 using System.IO;
 #if FEATURE_SERIALIZABLE_EXCEPTIONS
@@ -46,6 +47,18 @@ namespace Lucene.Net.Index
         public CorruptIndexException(string message, Exception ex) 
             : base(message, ex)
         {
+        }
+
+        /** Create exception with a message only */
+        public CorruptIndexException(string message, DataInput input) : base(message/*, input, null*/)
+        {
+            
+        }
+
+        /** Create exception with a message only */
+        public CorruptIndexException(string message, DataOutput output) :base(message/*, output, null*/)
+        {
+           
         }
 
 #if FEATURE_SERIALIZABLE_EXCEPTIONS

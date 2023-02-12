@@ -188,10 +188,10 @@ namespace Lucene.Net.Replicator.Nrt
          *
          *  <p>This returns null, logging a message, if there are any problems (the file does not exist, is corrupt, truncated, etc.).</p> */
         /// <exception cref="System.IO.IOException"/>
-        public FileMetaData ReadLocalFileMetaData(String fileName)
+        public FileMetaData ReadLocalFileMetaData(string fileName)
         {
 
-            IDictionary<String, FileMetaData> cache = lastFileMetaData;
+            IDictionary<string, FileMetaData> cache = lastFileMetaData;
             FileMetaData result;
             if (cache != null)
             {
@@ -251,5 +251,7 @@ namespace Lucene.Net.Replicator.Nrt
 
             return result;
         }
+
+        public abstract void Dispose();
     }
 }

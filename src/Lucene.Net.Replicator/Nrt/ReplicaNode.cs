@@ -736,7 +736,7 @@ namespace Lucene.Net.Replicator.Nrt
         }
 
         /// <exception cref="System.IO.IOException"/>
-        public override void Close()
+        public override void Dispose()
         {
             Message("top: now close");
             UninterruptableMonitor.Enter(this);
@@ -767,7 +767,7 @@ namespace Lucene.Net.Replicator.Nrt
                 lastCommitFiles.Clear();
 
                 Message("top: delete if no ref pendingMergeFiles=" + pendingMergeFiles);
-                foreach (String fileName in pendingMergeFiles)
+                foreach (string fileName in pendingMergeFiles)
                 {
                     deleter.DeleteIfNoRef(fileName);
                 }
@@ -787,7 +787,7 @@ namespace Lucene.Net.Replicator.Nrt
 
         /** Called when the primary changed */
         /// <exception cref="IOException"/>
-        protected void maybeNewPrimary(long newPrimaryGen)
+        protected void MaybeNewPrimary(long newPrimaryGen)
         {
             UninterruptableMonitor.Enter(this);
             try
@@ -823,15 +823,15 @@ namespace Lucene.Net.Replicator.Nrt
 
 
         /// <exception cref="IOException"/>
-        protected CopyJob launchPreCopyMerge(AtomicBoolean finished, long newPrimaryGen, IDictionary<String, FileMetaData> files)
+        protected CopyJob LaunchPreCopyMerge(AtomicBoolean finished, long newPrimaryGen, IDictionary<String, FileMetaData> files)
         {
 
             CopyJob job;
 
-            maybeNewPrimary(newPrimaryGen);
+            MaybeNewPrimary(newPrimaryGen);
             /*final*/
             long primaryGenStart = lastPrimaryGen;
-            ISet<String> fileNames = files.keySet();
+            ISet<String> fileNames = files.Keys.ToHashSet();
             Message("now pre-copy warm merge files=" + fileNames + " primaryGen=" + newPrimaryGen);
 
             foreach (String fileName in fileNames)
@@ -844,71 +844,71 @@ namespace Lucene.Net.Replicator.Nrt
             }
             var onceDoneImpl = new CopyJob.OnceDoneAction(job =>
             {
-            // Signals that this replica has finished
-            mergeCopyJobs.Remove(job);
-            Message("done warming merge " + fileNames + " failed?=" + job.GetFailed());
+                // Signals that this replica has finished
+                mergeCopyJobs.Remove(job);
+                Message("done warming merge " + fileNames + " failed?=" + job.GetFailed());
 
-            UninterruptableMonitor.Enter(this);
-            try
-            {
-                if (job.GetFailed() == false)
+                UninterruptableMonitor.Enter(this);
+                try
                 {
-                    if (lastPrimaryGen != primaryGenStart)
+                    if (job.GetFailed() == false)
                     {
-                        Message("merge pre copy finished but primary has changed; cancelling job files=" + fileNames);
-                        job.Cancel("primary changed during merge copy", null);
-                    }
-                    else
-                    {
-                        bool abort = false;
-                        foreach (String fileName in fileNames)
+                        if (lastPrimaryGen != primaryGenStart)
                         {
-                            if (lastNRTFiles.Contains(fileName))
-                            {
-                                Message("abort merge finish: file " + fileName + " is referenced by last NRT point");
-                                abort = true;
-                            }
-                            if (lastCommitFiles.Contains(fileName))
-                            {
-                                Message("abort merge finish: file " + fileName + " is referenced by last commit point");
-                                abort = true;
-                            }
-                        }
-                        if (abort)
-                        {
-                            // Even though in newNRTPoint we have similar logic, which cancels any merge copy jobs if an NRT point
-                            // shows up referencing the files we are warming (because primary got impatient and gave up on us), we also
-                            // need it here in case replica is way far behind and fails to even receive the merge pre-copy request
-                            // until after the newNRTPoint referenced those files:
-                            job.Cancel("merged segment was separately copied via NRT point", null);
+                            Message("merge pre copy finished but primary has changed; cancelling job files=" + fileNames);
+                            job.Cancel("primary changed during merge copy", null);
                         }
                         else
                         {
-                            job.Finish();
-                            Message("merge pre copy finished files=" + fileNames);
+                            bool abort = false;
                             foreach (String fileName in fileNames)
                             {
-                                if (Debugging.AssertsEnabled)
+                                if (lastNRTFiles.Contains(fileName))
                                 {
-                                    Debugging.Assert(pendingMergeFiles.Contains(fileName) == false, "file \"" + fileName + "\" is already in pendingMergeFiles");
+                                    Message("abort merge finish: file " + fileName + " is referenced by last NRT point");
+                                    abort = true;
                                 }
-                                Message("add file " + fileName + " to pendingMergeFiles");
-                                pendingMergeFiles.Add(fileName);
+                                if (lastCommitFiles.Contains(fileName))
+                                {
+                                    Message("abort merge finish: file " + fileName + " is referenced by last commit point");
+                                    abort = true;
+                                }
+                            }
+                            if (abort)
+                            {
+                                // Even though in newNRTPoint we have similar logic, which cancels any merge copy jobs if an NRT point
+                                // shows up referencing the files we are warming (because primary got impatient and gave up on us), we also
+                                // need it here in case replica is way far behind and fails to even receive the merge pre-copy request
+                                // until after the newNRTPoint referenced those files:
+                                job.Cancel("merged segment was separately copied via NRT point", null);
+                            }
+                            else
+                            {
+                                job.Finish();
+                                Message("merge pre copy finished files=" + fileNames);
+                                foreach (String fileName in fileNames)
+                                {
+                                    if (Debugging.AssertsEnabled)
+                                    {
+                                        Debugging.Assert(pendingMergeFiles.Contains(fileName) == false, "file \"" + fileName + "\" is already in pendingMergeFiles");
+                                    }
+                                    Message("add file " + fileName + " to pendingMergeFiles");
+                                    pendingMergeFiles.Add(fileName);
+                                }
                             }
                         }
                     }
+                    else
+                    {
+                        Message("merge copy finished with failure");
+                    }
                 }
-                else
+                finally
                 {
-                    Message("merge copy finished with failure");
+                    UninterruptableMonitor.Exit(this);
                 }
-            }
-            finally
-            {
-                UninterruptableMonitor.Exit(this);
-            }
+            });
             finished.Set(true);
-                );
 
 
             job = NewCopyJob("warm merge on " + Name() + " filesNames=" + fileNames,
@@ -994,7 +994,7 @@ namespace Lucene.Net.Replicator.Nrt
         {
             if (copying.PutIfAbsent(name, Boolean.TRUE) != null)
             {
-                throw new IllegalStateException("file " + name + " is being copied in two places!");
+                throw IllegalStateException.Create("file " + name + " is being copied in two places!");
             }
         }
 
@@ -1002,7 +1002,7 @@ namespace Lucene.Net.Replicator.Nrt
         {
             if (copying.Remove(name) == null)
             {
-                throw new IllegalStateException("file " + name + " was not actually being copied?");
+                throw IllegalStateException.Create("file " + name + " was not actually being copied?");
             }
         }
     }

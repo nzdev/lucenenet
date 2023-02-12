@@ -40,7 +40,7 @@ namespace Lucene.Net.Replicator.Nrt
         private long bytesCopied;
 
         /// <exception cref="IOException"/>
-        public CopyOneFile(DataInput @in, ReplicaNode dest, String name, FileMetaData metaData, byte[] buffer)
+        public CopyOneFile(DataInput @in, ReplicaNode dest, string name, FileMetaData metaData, byte[] buffer)
         {
             this.@in = @in;
             this.name = name;
@@ -51,7 +51,7 @@ namespace Lucene.Net.Replicator.Nrt
             tmpName = @out.GetName();
 
             // last 8 bytes are checksum:
-            bytesToCopy = metaData.Length - 8;
+            bytesToCopy = metaData.length - 8;
 
             if (Node.VERBOSE_FILES)
             {
@@ -79,7 +79,7 @@ namespace Lucene.Net.Replicator.Nrt
         }
 
         /// <exception cref="IOException"/>
-        public void Close()
+        public void Dispose()
         {
             @out.Dispose();
             dest.FinishCopyFile(name);
@@ -95,7 +95,7 @@ namespace Lucene.Net.Replicator.Nrt
                 long bytesLeft = bytesToCopy - bytesCopied;
                 if (bytesLeft == 0)
                 {
-                    long checksum = @out.GetChecksum();
+                    long checksum = @out.Checksum;
                     if (checksum != metaData.checksum)
                     {
                         // Bits flipped during copy!
@@ -105,13 +105,13 @@ namespace Lucene.Net.Replicator.Nrt
 
                     // Paranoia: make sure the primary node is not smoking crack, by somehow sending us an already corrupted file whose checksum (in its
                     // footer) disagrees with reality:
-                    long actualChecksumIn = @in.ReadLong();
+                    long actualChecksumIn = @in.ReadInt64();
                     if (actualChecksumIn != checksum)
                     {
                         dest.Message("file " + tmpName + ": checksum claimed by primary disagrees with the file's footer: claimed checksum=" + checksum + " vs actual=" + actualChecksumIn);
                         throw new IOException("file " + name + ": checksum mismatch after file copy");
                     }
-                    @out.WriteLong(checksum);
+                    @out.WriteInt64(checksum);
                     Close();
 
                     if (Node.VERBOSE_FILES)
@@ -119,7 +119,7 @@ namespace Lucene.Net.Replicator.Nrt
                         dest.Message(String.Format("file %s: done copying [%s, %.3fms]",
                                                    name,
                                                    Node.BytesToString(metaData.length),
-                                                   ((Time.NanoTime() - copyStartNS) / 1000000.0));
+                                                   ((Time.NanoTime() - copyStartNS) / 1000000.0)));
                     }
 
                     return true;

@@ -52,6 +52,11 @@ namespace Lucene.Net.Util
         public static int GOOD_FAST_HASH_SEED => goodFastHashSeed;
 
         /// <summary>
+        /// length in bytes of an ID
+        /// </summary>
+        public static readonly int ID_LENGTH = 16;
+
+        /// <summary>
         /// Compares two <see cref="BytesRef"/>, element by element, and returns the
         /// number of elements common to both arrays.
         /// </summary>
