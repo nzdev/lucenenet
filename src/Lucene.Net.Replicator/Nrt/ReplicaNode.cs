@@ -47,7 +47,7 @@ namespace Lucene.Net.Replicator.Nrt
     public abstract class ReplicaNode : Node
     {
 
-        ReplicaFileDeleter deleter;
+        internal ReplicaFileDeleter deleter;
 
         ///<summary>
         /// IncRef'd files in the current commit point: 

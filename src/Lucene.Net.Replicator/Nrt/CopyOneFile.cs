@@ -81,7 +81,7 @@ namespace Lucene.Net.Replicator.Nrt
         /// <exception cref="IOException"/>
         public void Close()
         {
-            @out.Close();
+            @out.Dispose();
             dest.FinishCopyFile(name);
         }
 
@@ -136,7 +136,7 @@ namespace Lucene.Net.Replicator.Nrt
             return false;
         }
 
-        public long getBytesCopied()
+        public long GetBytesCopied()
         {
             return bytesCopied;
         }

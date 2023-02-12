@@ -23,139 +23,141 @@ using Lucene.Net.Support.Threading;
 using System;
 using System.Collections.Generic;
 
-
-/// <summary>
-/// A SearcherManager that refreshes via an externally provided (NRT) SegmentInfos, either from {@link IndexWriter} or via
-/// nrt replication to another index.
-/// </summary>
-/// <remarks>
-///  @lucene.experimental
-/// </remarks>
-class SegmentInfosSearcherManager : ReferenceManager<IndexSearcher>
+namespace Lucene.Net.Replicator.Nrt
 {
-    private volatile SegmentInfos currentInfos;
-    private readonly Directory dir;
-    private readonly Node node;
-    private readonly AtomicInt32 openReaderCount = new AtomicInt32();
-    private readonly SearcherFactory searcherFactory;
-
-    /// <exception cref="System.IO.IOException"/>
-    public SegmentInfosSearcherManager(Directory dir, Node node, SegmentInfos infosIn, SearcherFactory searcherFactory)
-    {
-        this.dir = dir;
-        this.node = node;
-        if (searcherFactory == null)
-        {
-            searcherFactory = new SearcherFactory();
-        }
-        this.searcherFactory = searcherFactory;
-        currentInfos = infosIn;
-        node.Message("SegmentInfosSearcherManager.init: use incoming infos=" + infosIn.ToString());
-        Current = SearcherManager.GetSearcher(searcherFactory, StandardDirectoryReader.Open(dir, currentInfos, null), null);
-        AddReaderClosedListener(Current.IndexReader);
-    }
-
-    protected override int GetRefCount(IndexSearcher s)
-    {
-        return s.IndexReader.RefCount;
-    }
-
-    protected override bool TryIncRef(IndexSearcher s)
-    {
-        return s.IndexReader.TryIncRef();
-    }
-
-    /// <exception cref="IOException"/>
-    protected override void DecRef(IndexSearcher s)
-    {
-        s.IndexReader.DecRef();
-    }
-
-    public SegmentInfos GetCurrentInfos()
-    {
-        return currentInfos;
-    }
-
     /// <summary>
-    /// Switch to new segments, refreshing if necessary. Note that it's the caller job to ensure
-    /// there's a held refCount for the incoming infos, so all files exist.
+    /// A SearcherManager that refreshes via an externally provided (NRT) SegmentInfos, either from {@link IndexWriter} or via
+    /// nrt replication to another index.
     /// </summary>
-    /// <exception cref="IOException"/>
-    public void SetCurrentInfos(SegmentInfos infos)
+    /// <remarks>
+    ///  @lucene.experimental
+    /// </remarks>
+    class SegmentInfosSearcherManager : ReferenceManager<IndexSearcher>
     {
-        if (currentInfos != null)
-        {
-            // So that if we commit, we will go to the next
-            // (unwritten so far) generation:
-            infos.UpdateGeneration(currentInfos);
-            node.Message("mgr.setCurrentInfos: carry over infos gen=" + infos.GetSegmentsFileName());
-        }
-        currentInfos = infos;
-        MaybeRefresh();
-    }
+        private volatile SegmentInfos currentInfos;
+        private readonly Directory dir;
+        private readonly Node node;
+        private readonly AtomicInt32 openReaderCount = new AtomicInt32();
+        private readonly SearcherFactory searcherFactory;
 
-    /// <exception cref="IOException"/>
-    protected override IndexSearcher RefreshIfNeeded(IndexSearcher old)
-    {
-        List<LeafReader> subs;
-        if (old == null)
+        /// <exception cref="System.IO.IOException"/>
+        public SegmentInfosSearcherManager(Directory dir, Node node, SegmentInfos infosIn, SearcherFactory searcherFactory)
         {
-            subs = null;
-        }
-        else
-        {
-            subs = new List<LeafReader>();
-            foreach (LeafReaderContext ctx in old.IndexReader.Leaves)
+            this.dir = dir;
+            this.node = node;
+            if (searcherFactory == null)
             {
-                subs.Add(ctx.reader());
+                searcherFactory = new SearcherFactory();
+            }
+            this.searcherFactory = searcherFactory;
+            currentInfos = infosIn;
+            node.Message("SegmentInfosSearcherManager.init: use incoming infos=" + infosIn.ToString());
+            Current = SearcherManager.GetSearcher(searcherFactory, StandardDirectoryReader.Open(dir, currentInfos, null), null);
+            AddReaderClosedListener(Current.IndexReader);
+        }
+
+        protected override int GetRefCount(IndexSearcher s)
+        {
+            return s.IndexReader.RefCount;
+        }
+
+        protected override bool TryIncRef(IndexSearcher s)
+        {
+            return s.IndexReader.TryIncRef();
+        }
+
+        /// <exception cref="IOException"/>
+        protected override void DecRef(IndexSearcher s)
+        {
+            s.IndexReader.DecRef();
+        }
+
+        public SegmentInfos GetCurrentInfos()
+        {
+            return currentInfos;
+        }
+
+        /// <summary>
+        /// Switch to new segments, refreshing if necessary. Note that it's the caller job to ensure
+        /// there's a held refCount for the incoming infos, so all files exist.
+        /// </summary>
+        /// <exception cref="IOException"/>
+        public void SetCurrentInfos(SegmentInfos infos)
+        {
+            if (currentInfos != null)
+            {
+                // So that if we commit, we will go to the next
+                // (unwritten so far) generation:
+                infos.UpdateGeneration(currentInfos);
+                node.Message("mgr.setCurrentInfos: carry over infos gen=" + infos.GetSegmentsFileName());
+            }
+            currentInfos = infos;
+            MaybeRefresh();
+        }
+
+        /// <exception cref="IOException"/>
+        protected override IndexSearcher RefreshIfNeeded(IndexSearcher old)
+        {
+            List<LeafReader> subs;
+            if (old == null)
+            {
+                subs = null;
+            }
+            else
+            {
+                subs = new List<LeafReader>();
+                foreach (LeafReaderContext ctx in old.IndexReader.Leaves)
+                {
+                    subs.Add(ctx.reader());
+                }
+            }
+
+            // Open a new reader, sharing any common segment readers with the old one:
+            DirectoryReader r = StandardDirectoryReader.Open(dir, currentInfos, subs);
+            AddReaderClosedListener(r);
+            node.Message("refreshed to version=" + currentInfos.Version + " r=" + r);
+            return SearcherManager.GetSearcher(searcherFactory, r, (DirectoryReader)old.IndexReader);
+        }
+
+        private class ReaderClosedListenerAction : IndexReader.IReaderClosedListener
+        {
+            private readonly Action<IndexReader> action;
+
+            public ReaderClosedListenerAction(Action<IndexReader> action)
+            {
+                this.action = action;
+            }
+            public void OnClose(IndexReader reader)
+            {
+                action(reader);
             }
         }
 
-        // Open a new reader, sharing any common segment readers with the old one:
-        DirectoryReader r = StandardDirectoryReader.Open(dir, currentInfos, subs);
-        AddReaderClosedListener(r);
-        node.Message("refreshed to version=" + currentInfos.Version + " r=" + r);
-        return SearcherManager.GetSearcher(searcherFactory, r, (DirectoryReader)old.IndexReader);
-    }
-
-    private class ReaderClosedListenerAction : IndexReader.IReaderClosedListener
-    {
-        private readonly Action<IndexReader> action;
-
-        public ReaderClosedListenerAction(Action<IndexReader> action)
+        private void AddReaderClosedListener(IndexReader r)
         {
-            this.action = action;
+            openReaderCount.IncrementAndGet();
+            r.AddReaderClosedListener(new ReaderClosedListenerAction((reader) => OnReaderClosed()));
         }
-        public void OnClose(IndexReader reader)
-        {
-            action(reader);
-        }
-    }
 
-    private void AddReaderClosedListener(IndexReader r)
-    {
-        openReaderCount.IncrementAndGet();
-        r.AddReaderClosedListener(new ReaderClosedListenerAction((reader) => OnReaderClosed()));
-    }
-
-    /// <summary>
-    /// Tracks how many readers are still open, so that when we are closed,
-    /// we can additionally wait until all in-flight searchers are
-    /// closed.
-    /// </summary>
-    void OnReaderClosed()
-    {
-        UninterruptableMonitor.Enter(this);
-        try
+        /// <summary>
+        /// Tracks how many readers are still open, so that when we are closed,
+        /// we can additionally wait until all in-flight searchers are
+        /// closed.
+        /// </summary>
+        void OnReaderClosed()
         {
-            if (openReaderCount.DecrementAndGet() == 0)
+            UninterruptableMonitor.Enter(this);
+            try
             {
-                UninterruptableMonitor.PulseAll(this);
+                if (openReaderCount.DecrementAndGet() == 0)
+                {
+                    UninterruptableMonitor.PulseAll(this);
+                }
             }
-        }
-        finally
-        {
-            UninterruptableMonitor.Exit(this);
+            finally
+            {
+                UninterruptableMonitor.Exit(this);
+            }
         }
     }
 }

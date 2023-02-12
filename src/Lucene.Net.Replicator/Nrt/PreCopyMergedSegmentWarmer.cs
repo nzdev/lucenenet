@@ -41,7 +41,7 @@ namespace Lucene.Net.Replicator.Nrt
             this.primary = primary;
         }
 
-        /// <exception cref="IOException"/>
+        /// <exception cref="System.IO.IOException"/>
         public override void Warm(AtomicReader reader)
         {
             long startNS = Time.NanoTime();

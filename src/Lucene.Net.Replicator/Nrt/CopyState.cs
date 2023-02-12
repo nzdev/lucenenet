@@ -15,44 +15,52 @@
  * limitations under the License.
  */
 
+using Lucene.Net.Diagnostics;
 using Lucene.Net.Index;
+using Lucene.Net.Support;
 using System;
 using System.Collections.Generic;
 
-/// <summary>
-/// Holds incRef'd file level details for one point-in-time segment infos on the primary node.
-/// </summary>
-/// <remarks>
-/// @lucene.experimental
-/// </remarks>
-public class CopyState
-{
+namespace Lucene.Net.Replicator.Nrt {
 
-    public readonly IDictionary<String, FileMetaData> files;
-    public readonly long version;
-    public readonly long gen;
-    public readonly byte[] infosBytes;
-    public readonly ISet<String> completedMergeFiles;
-    public readonly long primaryGen;
-
-    // only non-null on the primary node
-    public readonly SegmentInfos infos;
-
-    public CopyState(IDictionary<String, FileMetaData> files, long version, long gen, byte[] infosBytes,
-                     ISet<String> completedMergeFiles, long primaryGen, SegmentInfos infos)
+    /// <summary>
+    /// Holds incRef'd file level details for one point-in-time segment infos on the primary node.
+    /// </summary>
+    /// <remarks>
+    /// @lucene.experimental
+    /// </remarks>
+    public class CopyState
     {
-        assert completedMergeFiles != null;
-        this.files = Collections.unmodifiableMap(files);
-        this.version = version;
-        this.gen = gen;
-        this.infosBytes = infosBytes;
-        this.completedMergeFiles = Collections.unmodifiableSet(completedMergeFiles);
-        this.primaryGen = primaryGen;
-        this.infos = infos;
-    }
 
-    public override string ToString()
-    {
-        return nameof(CopyState) + "(version=" + version + ")";
+        public readonly IDictionary<string, FileMetaData> files;
+        public readonly long version;
+        public readonly long gen;
+        public readonly byte[] infosBytes;
+        public readonly ISet<string> completedMergeFiles;
+        public readonly long primaryGen;
+
+        // only non-null on the primary node
+        public readonly SegmentInfos infos;
+
+        public CopyState(IDictionary<string, FileMetaData> files, long version, long gen, byte[] infosBytes,
+                         ISet<string> completedMergeFiles, long primaryGen, SegmentInfos infos)
+        {
+            if (Debugging.AssertsEnabled)
+            {
+                Debugging.Assert(completedMergeFiles != null);
+            }
+            this.files = Collections.UnmodifiableMap(files);
+            this.version = version;
+            this.gen = gen;
+            this.infosBytes = infosBytes;
+            this.completedMergeFiles = Collections.UnmodifiableSet(completedMergeFiles);
+            this.primaryGen = primaryGen;
+            this.infos = infos;
+        }
+
+        public override string ToString()
+        {
+            return nameof(CopyState) + "(version=" + version + ")";
+        }
     }
 }

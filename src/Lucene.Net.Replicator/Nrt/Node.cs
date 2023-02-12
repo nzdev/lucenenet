@@ -53,7 +53,7 @@ namespace Lucene.Net.Replicator.Nrt
         /** Compact ordinal for this node */
         protected readonly int id;
 
-        protected readonly Directory dir;
+        internal readonly Directory dir;
 
         protected readonly SearcherFactory searcherFactory;
 

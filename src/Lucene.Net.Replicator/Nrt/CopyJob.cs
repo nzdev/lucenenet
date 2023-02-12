@@ -29,6 +29,8 @@ using System.Collections.Generic;
 using System.IO;
 using Lucene.Net.Diagnostics;
 using Lucene.Net.Index;
+using System.Linq;
+
 namespace Lucene.Net.Replicator.Nrt
 {
     /** Handles copying one set of files, e.g. all files for a new NRT point, or files for pre-copying a merged segment.
@@ -252,7 +254,7 @@ namespace Lucene.Net.Replicator.Nrt
 
                 // Delete all temp files the old job wrote but we don't need:
                 dest.Message("xfer: now delete old temp files: " + prevJob.copiedFiles.Values);
-                IOUtils.DeleteFilesIgnoringExceptions(dest.dir, prevJob.copiedFiles.Values);
+                IOUtils.DeleteFilesIgnoringExceptions(dest.dir, prevJob.copiedFiles.Values.ToArray());
 
                 if (prevJob.current != null)
                 {
@@ -311,7 +313,7 @@ namespace Lucene.Net.Replicator.Nrt
             this.cancelReason = reason;
 
             // Delete all temp files we wrote:
-            IOUtils.DeleteFilesIgnoringExceptions(dest.dir, copiedFiles.Values);
+            IOUtils.DeleteFilesIgnoringExceptions(dest.dir, copiedFiles.Values.ToArray());
 
             if (current != null)
             {
