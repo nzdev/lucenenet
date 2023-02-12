@@ -112,7 +112,7 @@ namespace Lucene.Net.Replicator.Nrt
                         throw new IOException("file " + name + ": checksum mismatch after file copy");
                     }
                     @out.WriteInt64(checksum);
-                    Close();
+                    Dispose();
 
                     if (Node.VERBOSE_FILES)
                     {

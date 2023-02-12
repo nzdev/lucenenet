@@ -121,258 +121,266 @@ namespace Lucene.Net.Replicator.Nrt
 
         /** Start up this replica, which possibly requires heavy copying of files from the primary node, if we were down for a long time */
         /// <exception cref="System.IO.IOException"/>
-        protected synchronized void Start(long curPrimaryGen)
+        protected void Start(long curPrimaryGen)
         {
-
-            if (state.Equals("init") == false)
-            {
-                throw IllegalStateException.Create("already started");
-            }
-
-            Message("top: now start");
+            UninterruptableMonitor.Enter(this);
             try
             {
-
-                // Figure out what state our local index is in now:
-                String segmentsFileName = SegmentInfos.GetLastCommitSegmentsFileName(dir);
-
-                // Also look for any pending_segments_N, in case we crashed mid-commit.  We must "inflate" our infos gen to at least this, since
-                // otherwise we may wind up re-using the pending_segments_N file name on commit, and then our deleter can get angry because it still
-                // wants to delete this file:
-                long maxPendingGen = -1;
-                foreach (String fileName in dir.ListAll())
+                if (state.Equals("init") == false)
                 {
-                    if (fileName.StartsWith(IndexFileNames.PENDING_SEGMENTS))
-                    {
-                        long gen = Long.parseLong(fileName.Substring(IndexFileNames.PENDING_SEGMENTS.length() + 1), Character.MAX_RADIX);
-                        if (gen > maxPendingGen)
-                        {
-                            maxPendingGen = gen;
-                        }
-                    }
+                    throw IllegalStateException.Create("already started");
                 }
 
-                SegmentInfos infos;
-                if (segmentsFileName == null)
-                {
-                    // No index here yet:
-                    infos = new SegmentInfos();
-                    Message("top: init: no segments in index");
-                }
-                else
-                {
-                    Message("top: init: read existing segments commit " + segmentsFileName);
-                    infos = SegmentInfos.ReadCommit(dir, segmentsFileName);
-                    Message("top: init: segments: " + infos.ToString() + " version=" + infos.Version);
-                    Collection<String> indexFiles = infos.Files(false);
-
-                    lastCommitFiles.Add(segmentsFileName);
-                    lastCommitFiles.AddAll(indexFiles);
-
-                    // Always protect the last commit:
-                    deleter.IncRef(lastCommitFiles);
-
-                    lastNRTFiles.AddAll(indexFiles);
-                    deleter.IncRef(lastNRTFiles);
-                    Message("top: commitFiles=" + lastCommitFiles);
-                    Message("top: nrtFiles=" + lastNRTFiles);
-                }
-
-                Message("top: delete unknown files on init: all files=" + Arrays.ToString(dir.ListAll()));
-                deleter.DeleteUnknownFiles(segmentsFileName);
-                Message("top: done delete unknown files on init: all files=" + Arrays.ToString(dir.ListAll()));
-
-                String s = infos.UserData[PRIMARY_GEN_KEY];
-                long myPrimaryGen;
-                if (s == null)
-                {
-                    if (Debugging.AssertsEnabled)
-                    {
-                        Debugging.Assert(infos.Size() == 0);
-                    }
-                    myPrimaryGen = -1;
-                }
-                else
-                {
-                    myPrimaryGen = Long.parseLong(s);
-                }
-                Message("top: myPrimaryGen=" + myPrimaryGen);
-
-                bool doCommit;
-
-                if (infos.Size() > 0 && myPrimaryGen != -1 && myPrimaryGen != curPrimaryGen)
-                {
-                    if (Debugging.AssertsEnabled)
-                    {
-                        Debugging.Assert(myPrimaryGen < curPrimaryGen);
-                    }
-
-                    // Primary changed while we were down.  In this case, we must sync from primary before opening a reader, because it's possible current
-                    // files we have will need to be overwritten with different ones (if index rolled back and "forked"), and we can't overwrite open
-                    // files on Windows:
-
-                    /*final*/
-                    long initSyncStartNS = Time.NanoTime();
-
-                    Message("top: init: primary changed while we were down myPrimaryGen=" + myPrimaryGen +
-                            " vs curPrimaryGen=" + curPrimaryGen +
-                            "; sync now before mgr init");
-
-                    // Try until we succeed in copying over the latest NRT point:
-                    CopyJob job = null;
-
-                    // We may need to overwrite files referenced by our latest commit, either right now on initial sync, or on a later sync.  To make
-                    // sure the index is never even in an "apparently" corrupt state (where an old segments_N references invalid files) we forcefully
-                    // remove the commit now, and refuse to start the replica if this delete fails:
-                    Message("top: now delete starting commit point " + segmentsFileName);
-
-                    // If this throws exc (e.g. due to virus checker), we cannot start this replica:
-                    if (Debugging.AssertsEnabled)
-                    {
-                        Debugging.Assert(deleter.GetRefCount(segmentsFileName) == 1);
-                    }
-                    deleter.DecRef(new[] { segmentsFileName });
-
-                    if (dir is FSDirectory && ((FSDirectory)dir).CheckPendingDeletions())
-                    {
-                        // If e.g. virus checker blocks us from deleting, we absolutely cannot start this node else there is a definite window during
-                        // which if we carsh, we cause corruption:
-                        throw RuntimeException.Create("replica cannot start: existing segments file=" + segmentsFileName + " must be removed in order to start, but the file delete failed");
-                    }
-
-                    // So we don't later try to decRef it (illegally) again:
-                    bool didRemove = lastCommitFiles.Remove(segmentsFileName);
-                    if (Debugging.AssertsEnabled)
-                    {
-                        Debugging.Assert(didRemove);
-                    }
-
-                    while (true)
-                    {
-                        job = NewCopyJob("sync on startup replica=" + Name() + " myVersion=" + infos.Version,
-                                         null,
-                                         null,
-                                         true,
-                                         null);
-                        job.Start();
-
-                        Message("top: init: sync sis.version=" + job.GetCopyState().version);
-
-                        ICollection<string> fileNamesToCopy = job.GetFileNamesToCopy();
-
-                        // Force this copy job to finish while we wait, now.  Note that this can be very time consuming!
-                        // NOTE: newNRTPoint detects we are still in init (mgr is null) and does not cancel our copy if a flush happens
-                        try
-                        {
-                            job.RunBlocking();
-                            job.Finish();
-
-                            // Success!
-                            break;
-                        }
-                        catch (System.IO.IOException ioe)
-                        {
-                            job.Cancel("startup failed", ioe);
-                            if (ioe.Message.Contains("checksum mismatch after file copy"))
-                            {
-                                // OK-ish
-                                Message("top: failed to copy: " + ioe + "; retrying");
-                            }
-                            else
-                            {
-                                throw ioe;
-                            }
-                        }
-                    }
-
-                    lastPrimaryGen = job.GetCopyState().primaryGen;
-                    byte[] infosBytes = job.GetCopyState().infosBytes;
-
-                    SegmentInfos syncInfos = SegmentInfos.ReadCommit(dir,
-                                                                     new BufferedChecksumIndexInput(new ByteArrayIndexInput("SegmentInfos", job.GetCopyState().infosBytes)),
-                                                                     job.GetCopyState().gen);
-
-                    // Must always commit to a larger generation than what's currently in the index:
-                    syncInfos.UpdateGeneration(infos);
-                    infos = syncInfos;
-                    if (Debugging.AssertsEnabled)
-                    {
-                        Debugging.Assert(infos.Version == job.GetCopyState().version);
-                    }
-                    Message("  version=" + infos.Version + " segments=" + infos.ToString());
-                    Message("top: init: incRef nrtFiles=" + job.GetFileNames());
-                    deleter.IncRef(job.GetFileNames());
-                    Message("top: init: decRef lastNRTFiles=" + lastNRTFiles);
-                    deleter.DecRef(lastNRTFiles);
-
-                    lastNRTFiles.Clear();
-                    lastNRTFiles.AddAll(job.GetFileNames());
-
-                    Message("top: init: set lastNRTFiles=" + lastNRTFiles);
-                    lastFileMetaData = job.GetCopyState().files;
-                    Message(string.Format("top: %d: start: done sync: took %.3fs for %s, opened NRT reader version=%d",
-                                          id,
-                                          (Time.NanoTime() - initSyncStartNS) / 1000000000.0,
-                                          bytesToString(job.GetTotalBytesCopied()),
-                                          job.GetCopyState().version));
-
-                    doCommit = true;
-                }
-                else
-                {
-                    doCommit = false;
-                    lastPrimaryGen = curPrimaryGen;
-                    Message("top: same primary as before");
-                }
-
-                if (infos.Generation < maxPendingGen)
-                {
-                    Message("top: move infos generation from " + infos.Generation + " to " + maxPendingGen);
-                    infos.SetNextWriteGeneration(maxPendingGen);
-                }
-
-                // Notify primary we started, to give it a chance to send any warming merges our way to reduce NRT latency of first sync:
-                SendNewReplica();
-
-                // Finally, we are open for business, since our index now "agrees" with the primary:
-                mgr = new SegmentInfosSearcherManager(dir, this, infos, searcherFactory);
-
-                IndexSearcher searcher = mgr.Acquire();
+                Message("top: now start");
                 try
                 {
-                    // TODO: this is test specific:
-                    int hitCount = searcher.Count(new TermQuery(new Term("marker", "marker")));
-                    Message("top: marker count=" + hitCount + " version=" + ((DirectoryReader)searcher.GetIndexReader()).getVersion());
-                }
-                finally
-                {
-                    mgr.Release(searcher);
-                }
 
-                // Must commit after init mgr:
-                if (doCommit)
-                {
-                    // Very important to commit what we just sync'd over, because we removed the pre-existing commit point above if we had to
-                    // overwrite any files it referenced:
-                    Commit();
-                }
+                    // Figure out what state our local index is in now:
+                    String segmentsFileName = SegmentInfos.GetLastCommitSegmentsFileName(dir);
 
-                Message("top: done start");
-                state = "idle";
+                    // Also look for any pending_segments_N, in case we crashed mid-commit.  We must "inflate" our infos gen to at least this, since
+                    // otherwise we may wind up re-using the pending_segments_N file name on commit, and then our deleter can get angry because it still
+                    // wants to delete this file:
+                    long maxPendingGen = -1;
+                    foreach (String fileName in dir.ListAll())
+                    {
+                        if (fileName.StartsWith(IndexFileNames.PENDING_SEGMENTS))
+                        {
+                            long gen = Long.parseLong(fileName.Substring(IndexFileNames.PENDING_SEGMENTS.length() + 1), Character.MAX_RADIX);
+                            if (gen > maxPendingGen)
+                            {
+                                maxPendingGen = gen;
+                            }
+                        }
+                    }
+
+                    SegmentInfos infos;
+                    if (segmentsFileName == null)
+                    {
+                        // No index here yet:
+                        infos = new SegmentInfos();
+                        Message("top: init: no segments in index");
+                    }
+                    else
+                    {
+                        Message("top: init: read existing segments commit " + segmentsFileName);
+                        infos = SegmentInfos.ReadCommit(dir, segmentsFileName);
+                        Message("top: init: segments: " + infos.ToString() + " version=" + infos.Version);
+                        Collection<String> indexFiles = infos.Files(false);
+
+                        lastCommitFiles.Add(segmentsFileName);
+                        lastCommitFiles.AddAll(indexFiles);
+
+                        // Always protect the last commit:
+                        deleter.IncRef(lastCommitFiles);
+
+                        lastNRTFiles.AddAll(indexFiles);
+                        deleter.IncRef(lastNRTFiles);
+                        Message("top: commitFiles=" + lastCommitFiles);
+                        Message("top: nrtFiles=" + lastNRTFiles);
+                    }
+
+                    Message("top: delete unknown files on init: all files=" + Arrays.ToString(dir.ListAll()));
+                    deleter.DeleteUnknownFiles(segmentsFileName);
+                    Message("top: done delete unknown files on init: all files=" + Arrays.ToString(dir.ListAll()));
+
+                    String s = infos.UserData[PRIMARY_GEN_KEY];
+                    long myPrimaryGen;
+                    if (s == null)
+                    {
+                        if (Debugging.AssertsEnabled)
+                        {
+                            Debugging.Assert(infos.Size() == 0);
+                        }
+                        myPrimaryGen = -1;
+                    }
+                    else
+                    {
+                        myPrimaryGen = Long.parseLong(s);
+                    }
+                    Message("top: myPrimaryGen=" + myPrimaryGen);
+
+                    bool doCommit;
+
+                    if (infos.Size() > 0 && myPrimaryGen != -1 && myPrimaryGen != curPrimaryGen)
+                    {
+                        if (Debugging.AssertsEnabled)
+                        {
+                            Debugging.Assert(myPrimaryGen < curPrimaryGen);
+                        }
+
+                        // Primary changed while we were down.  In this case, we must sync from primary before opening a reader, because it's possible current
+                        // files we have will need to be overwritten with different ones (if index rolled back and "forked"), and we can't overwrite open
+                        // files on Windows:
+
+                        /*final*/
+                        long initSyncStartNS = Time.NanoTime();
+
+                        Message("top: init: primary changed while we were down myPrimaryGen=" + myPrimaryGen +
+                                " vs curPrimaryGen=" + curPrimaryGen +
+                                "; sync now before mgr init");
+
+                        // Try until we succeed in copying over the latest NRT point:
+                        CopyJob job = null;
+
+                        // We may need to overwrite files referenced by our latest commit, either right now on initial sync, or on a later sync.  To make
+                        // sure the index is never even in an "apparently" corrupt state (where an old segments_N references invalid files) we forcefully
+                        // remove the commit now, and refuse to start the replica if this delete fails:
+                        Message("top: now delete starting commit point " + segmentsFileName);
+
+                        // If this throws exc (e.g. due to virus checker), we cannot start this replica:
+                        if (Debugging.AssertsEnabled)
+                        {
+                            Debugging.Assert(deleter.GetRefCount(segmentsFileName) == 1);
+                        }
+                        deleter.DecRef(new[] { segmentsFileName });
+
+                        if (dir is FSDirectory && ((FSDirectory)dir).CheckPendingDeletions())
+                        {
+                            // If e.g. virus checker blocks us from deleting, we absolutely cannot start this node else there is a definite window during
+                            // which if we carsh, we cause corruption:
+                            throw RuntimeException.Create("replica cannot start: existing segments file=" + segmentsFileName + " must be removed in order to start, but the file delete failed");
+                        }
+
+                        // So we don't later try to decRef it (illegally) again:
+                        bool didRemove = lastCommitFiles.Remove(segmentsFileName);
+                        if (Debugging.AssertsEnabled)
+                        {
+                            Debugging.Assert(didRemove);
+                        }
+
+                        while (true)
+                        {
+                            job = NewCopyJob("sync on startup replica=" + Name() + " myVersion=" + infos.Version,
+                                             null,
+                                             null,
+                                             true,
+                                             null);
+                            job.Start();
+
+                            Message("top: init: sync sis.version=" + job.GetCopyState().version);
+
+                            ICollection<string> fileNamesToCopy = job.GetFileNamesToCopy();
+
+                            // Force this copy job to finish while we wait, now.  Note that this can be very time consuming!
+                            // NOTE: newNRTPoint detects we are still in init (mgr is null) and does not cancel our copy if a flush happens
+                            try
+                            {
+                                job.RunBlocking();
+                                job.Finish();
+
+                                // Success!
+                                break;
+                            }
+                            catch (System.IO.IOException ioe)
+                            {
+                                job.Cancel("startup failed", ioe);
+                                if (ioe.Message.Contains("checksum mismatch after file copy"))
+                                {
+                                    // OK-ish
+                                    Message("top: failed to copy: " + ioe + "; retrying");
+                                }
+                                else
+                                {
+                                    throw ioe;
+                                }
+                            }
+                        }
+
+                        lastPrimaryGen = job.GetCopyState().primaryGen;
+                        byte[] infosBytes = job.GetCopyState().infosBytes;
+
+                        SegmentInfos syncInfos = SegmentInfos.ReadCommit(dir,
+                                                                         new BufferedChecksumIndexInput(new ByteArrayIndexInput("SegmentInfos", job.GetCopyState().infosBytes)),
+                                                                         job.GetCopyState().gen);
+
+                        // Must always commit to a larger generation than what's currently in the index:
+                        syncInfos.UpdateGeneration(infos);
+                        infos = syncInfos;
+                        if (Debugging.AssertsEnabled)
+                        {
+                            Debugging.Assert(infos.Version == job.GetCopyState().version);
+                        }
+                        Message("  version=" + infos.Version + " segments=" + infos.ToString());
+                        Message("top: init: incRef nrtFiles=" + job.GetFileNames());
+                        deleter.IncRef(job.GetFileNames());
+                        Message("top: init: decRef lastNRTFiles=" + lastNRTFiles);
+                        deleter.DecRef(lastNRTFiles);
+
+                        lastNRTFiles.Clear();
+                        lastNRTFiles.AddAll(job.GetFileNames());
+
+                        Message("top: init: set lastNRTFiles=" + lastNRTFiles);
+                        lastFileMetaData = job.GetCopyState().files;
+                        Message(string.Format("top: %d: start: done sync: took %.3fs for %s, opened NRT reader version=%d",
+                                              id,
+                                              (Time.NanoTime() - initSyncStartNS) / 1000000000.0,
+                                              bytesToString(job.GetTotalBytesCopied()),
+                                              job.GetCopyState().version));
+
+                        doCommit = true;
+                    }
+                    else
+                    {
+                        doCommit = false;
+                        lastPrimaryGen = curPrimaryGen;
+                        Message("top: same primary as before");
+                    }
+
+                    if (infos.Generation < maxPendingGen)
+                    {
+                        Message("top: move infos generation from " + infos.Generation + " to " + maxPendingGen);
+                        infos.SetNextWriteGeneration(maxPendingGen);
+                    }
+
+                    // Notify primary we started, to give it a chance to send any warming merges our way to reduce NRT latency of first sync:
+                    SendNewReplica();
+
+                    // Finally, we are open for business, since our index now "agrees" with the primary:
+                    mgr = new SegmentInfosSearcherManager(dir, this, infos, searcherFactory);
+
+                    IndexSearcher searcher = mgr.Acquire();
+                    try
+                    {
+                        // TODO: this is test specific:
+                        int hitCount = searcher.Count(new TermQuery(new Term("marker", "marker")));
+                        Message("top: marker count=" + hitCount + " version=" + ((DirectoryReader)searcher.GetIndexReader()).getVersion());
+                    }
+                    finally
+                    {
+                        mgr.Release(searcher);
+                    }
+
+                    // Must commit after init mgr:
+                    if (doCommit)
+                    {
+                        // Very important to commit what we just sync'd over, because we removed the pre-existing commit point above if we had to
+                        // overwrite any files it referenced:
+                        Commit();
+                    }
+
+                    Message("top: done start");
+                    state = "idle";
+                }
+                catch (Exception t)
+                {
+                    if (t.Message.StartsWith("replica cannot start") == false)
+                    {
+                        Message("exc on start:");
+                        t.PrintStackTrace(printStream);
+                    }
+                    else
+                    {
+                        dir.Dispose();
+                    }
+                    IOUtils.ReThrow(t);
+                }
             }
-            catch (Exception t)
+            finally
             {
-                if (t.Message.StartsWith("replica cannot start") == false)
-                {
-                    Message("exc on start:");
-                    t.PrintStackTrace(printStream);
-                }
-                else
-                {
-                    dir.Dispose();
-                }
-                IOUtils.ReThrow(t);
+                UninterruptableMonitor.Exit(this);
             }
+            
         }
 
         readonly Object commitLock = new Object();
