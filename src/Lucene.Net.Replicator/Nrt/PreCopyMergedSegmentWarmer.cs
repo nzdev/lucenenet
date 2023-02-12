@@ -61,7 +61,7 @@ namespace Lucene.Net.Replicator.Nrt
 
             primary.PreCopyMergedSegmentFiles(info, filesMetaData);
             primary.Message(string.Format("top: done warm merge " + info + ": took %.3f sec, %.1f MB", (Time.NanoTime() - startNS) / 1000000000.0, info.GetSizeInBytes() / 1024 / 1024.0));
-            primary.FinishedMergedFiles.addAll(filesMetaData.Keys);
+            primary.finishedMergedFiles.AddAll(filesMetaData.Keys);
         }
     }
 }

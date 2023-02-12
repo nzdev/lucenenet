@@ -58,7 +58,7 @@ namespace Lucene.Net.Replicator.Nrt
         protected readonly long primaryGen;
 
         /** Contains merged segments that have been copied to all running replicas (as of when that merge started warming). */
-        readonly ISet<string> finishedMergedFiles = Collections.synchronizedSet(new HashSet<string>());
+        internal readonly ISet<string> finishedMergedFiles = Collections.synchronizedSet(new HashSet<string>());
 
         private readonly AtomicInt32 copyingCount = new AtomicInt32();
 
@@ -330,7 +330,7 @@ namespace Lucene.Net.Replicator.Nrt
                         if (Debugging.AssertsEnabled)
                         {
                             Debugging.Assert(metaData != null);
-                            Debugging.Assert(filesMetaData.containsKey(fileName) == false);
+                            Debugging.Assert(filesMetaData.ContainsKey(fileName) == false);
                         }
                         filesMetaData.Add(fileName, metaData);
                     }
@@ -391,10 +391,10 @@ namespace Lucene.Net.Replicator.Nrt
             UninterruptableMonitor.Enter(this);
             try
             {
-                waitForAllRemotesToClose();
+                WaitForAllRemotesToClose();
                 if (curInfos != null)
                 {
-                    writer.decRefDeleter(curInfos);
+                    writer.DecRefDeleter(curInfos);
                     curInfos = null;
                 }
             }
@@ -413,6 +413,6 @@ namespace Lucene.Net.Replicator.Nrt
 
         /** Called when a merge has finished, but before IW switches to the merged segment */
         /// <exception cref="IOException"/>
-        protected abstract void preCopyMergedSegmentFiles(SegmentCommitInfo info, IDictionary<String, FileMetaData> files);
+        protected abstract void PreCopyMergedSegmentFiles(SegmentCommitInfo info, IDictionary<String, FileMetaData> files);
     }
 }

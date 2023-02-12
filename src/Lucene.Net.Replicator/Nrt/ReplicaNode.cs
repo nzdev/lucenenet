@@ -231,7 +231,7 @@ namespace Lucene.Net.Replicator.Nrt
                     {
                         Debugging.Assert(deleter.GetRefCount(segmentsFileName) == 1);
                     }
-                    deleter.DecRef(Collections.singleton(segmentsFileName));
+                    deleter.DecRef(new[] { segmentsFileName });
 
                     if (dir is FSDirectory && ((FSDirectory)dir).CheckPendingDeletions())
                     {
