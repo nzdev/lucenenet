@@ -1,6 +1,4 @@
-package org.apache.lucene.replicator.nrt;
-
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,16 +15,27 @@ package org.apache.lucene.replicator.nrt;
  * limitations under the License.
  */
 
-/**
- * Should be thrown by subclasses of {@link PrimaryNode} and {@link ReplicaNode} if a non-fatal exception
- * occurred while communicating between nodes.
- *
- * @lucene.experimental
- */
-public class NodeCommunicationException extends RuntimeException {
-  public NodeCommunicationException(String when, Throwable cause) {
-    super(when);
-    assert cause != null;
-    initCause(cause);
-  }
+using Lucene.Net.Diagnostics;
+using System;
+using System.IO;
+
+namespace Lucene.Net.Replicator.Nrt
+{
+    /// <summary>
+    /// Should be thrown by subclasses of {@link PrimaryNode} and {@link ReplicaNode} if a non-fatal
+    /// exception occurred while communicating between nodes.
+    /// </summary>
+    /// <remarks>
+    /// @lucene.experimental
+    /// </remarks>
+    public class NodeCommunicationException : IOException, IRuntimeException
+    {
+        protected NodeCommunicationException(string when, Exception cause) : base(when, cause)
+        {
+            if (Debugging.AssertsEnabled)
+            {
+                Debugging.Assert(cause != null);
+            }
+        }
+    }
 }

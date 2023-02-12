@@ -1,6 +1,4 @@
-package org.apache.lucene.replicator.nrt;
-
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,42 +15,44 @@ package org.apache.lucene.replicator.nrt;
  * limitations under the License.
  */
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+using Lucene.Net.Index;
+using System;
+using System.Collections.Generic;
 
-import org.apache.lucene.index.SegmentInfos;
-import org.apache.lucene.store.Directory;
+/// <summary>
+/// Holds incRef'd file level details for one point-in-time segment infos on the primary node.
+/// </summary>
+/// <remarks>
+/// @lucene.experimental
+/// </remarks>
+public class CopyState
+{
 
-/** Holds incRef'd file level details for one point-in-time segment infos on the primary node.
- *
- * @lucene.experimental */
-public class CopyState {
+    public readonly IDictionary<String, FileMetaData> files;
+    public readonly long version;
+    public readonly long gen;
+    public readonly byte[] infosBytes;
+    public readonly ISet<String> completedMergeFiles;
+    public readonly long primaryGen;
 
-  public final Map<String,FileMetaData> files;
-  public final long version;
-  public final long gen;
-  public final byte[] infosBytes;
-  public final Set<String> completedMergeFiles;
-  public final long primaryGen;
-  
-  // only non-null on the primary node
-  public final SegmentInfos infos;
+    // only non-null on the primary node
+    public readonly SegmentInfos infos;
 
-  public CopyState(Map<String,FileMetaData> files, long version, long gen, byte[] infosBytes,
-                   Set<String> completedMergeFiles, long primaryGen, SegmentInfos infos) {
-    assert completedMergeFiles != null;
-    this.files = Collections.unmodifiableMap(files);
-    this.version = version;
-    this.gen = gen;
-    this.infosBytes = infosBytes;
-    this.completedMergeFiles = Collections.unmodifiableSet(completedMergeFiles);
-    this.primaryGen = primaryGen;
-    this.infos = infos;
-  }
+    public CopyState(IDictionary<String, FileMetaData> files, long version, long gen, byte[] infosBytes,
+                     ISet<String> completedMergeFiles, long primaryGen, SegmentInfos infos)
+    {
+        assert completedMergeFiles != null;
+        this.files = Collections.unmodifiableMap(files);
+        this.version = version;
+        this.gen = gen;
+        this.infosBytes = infosBytes;
+        this.completedMergeFiles = Collections.unmodifiableSet(completedMergeFiles);
+        this.primaryGen = primaryGen;
+        this.infos = infos;
+    }
 
-  @Override
-  public String toString() {
-    return getClass().getSimpleName() + "(version=" + version + ")";
-  }
+    public override string ToString()
+    {
+        return nameof(CopyState) + "(version=" + version + ")";
+    }
 }

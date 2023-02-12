@@ -37,34 +37,6 @@
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
     <NoWarn>$(NoWarn);1591;1573</NoWarn>
   </PropertyGroup>
-  
-  <ItemGroup>
-    <Compile Remove="Nrt\CopyJob.cs" />
-    <Compile Remove="Nrt\CopyOneFile.cs" />
-    <Compile Remove="Nrt\CopyState.cs" />
-    <Compile Remove="Nrt\FileMetaData.cs" />
-    <Compile Remove="Nrt\Node.cs" />
-    <Compile Remove="Nrt\NodeCommunicationException.cs" />
-    <Compile Remove="Nrt\PreCopyMergedSegmentWarmer.cs" />
-    <Compile Remove="Nrt\PrimaryNode.cs" />
-    <Compile Remove="Nrt\ReplicaFileDeleter.cs" />
-    <Compile Remove="Nrt\ReplicaNode.cs" />
-    <Compile Remove="Nrt\SegmentInfosSearcherManager.cs" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <None Include="Nrt\CopyJob.cs" />
-    <None Include="Nrt\CopyOneFile.cs" />
-    <None Include="Nrt\CopyState.cs" />
-    <None Include="Nrt\FileMetaData.cs" />
-    <None Include="Nrt\Node.cs" />
-    <None Include="Nrt\NodeCommunicationException.cs" />
-    <None Include="Nrt\PreCopyMergedSegmentWarmer.cs" />
-    <None Include="Nrt\PrimaryNode.cs" />
-    <None Include="Nrt\ReplicaFileDeleter.cs" />
-    <None Include="Nrt\ReplicaNode.cs" />
-    <None Include="Nrt\SegmentInfosSearcherManager.cs" />
-  </ItemGroup>
 
   
 

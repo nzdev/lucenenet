@@ -1,6 +1,4 @@
-package org.apache.lucene.replicator.nrt;
-
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,46 +15,53 @@ package org.apache.lucene.replicator.nrt;
  * limitations under the License.
  */
 
-/** A merged segment warmer that pre-copies the merged segment out to
- *  replicas before primary cuts over to the merged segment.  This
- *  ensures that NRT reopen time on replicas is only in proportion to
- *  flushed segment sizes, not merged segments. */
-
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-
-import org.apache.lucene.index.IndexWriter.IndexReaderWarmer;
-import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.SegmentCommitInfo;
-import org.apache.lucene.index.SegmentReader;
 
 // TODO: or ... replica node can do merging locally?  tricky to keep things in sync, when one node merges more slowly than others...
 
-class PreCopyMergedSegmentWarmer extends IndexReaderWarmer {
+using J2N;
+using Lucene.Net.Diagnostics;
+using Lucene.Net.Index;
+using System.Collections.Generic;
 
-  private final PrimaryNode primary;
+namespace Lucene.Net.Replicator.Nrt
+{
+    /// <summary>
+    /// A merged segment warmer that pre-copies the merged segment out to
+    ///  replicas before primary cuts over to the merged segment.  This
+    ///  ensures that NRT reopen time on replicas is only in proportion to
+    ///  flushed segment sizes, not merged segments.
+    ///</summary>
+    class PreCopyMergedSegmentWarmer : IndexWriter.IndexReaderWarmer
+    {
 
-  public PreCopyMergedSegmentWarmer(PrimaryNode primary) {
-    this.primary = primary;
-  }
+        private readonly PrimaryNode primary;
 
-  @Override
-  public void warm(LeafReader reader) throws IOException {
-    long startNS = System.nanoTime();
-    final SegmentCommitInfo info = ((SegmentReader) reader).getSegmentInfo();
-    //System.out.println("TEST: warm merged segment files " + info);
-    Map<String,FileMetaData> filesMetaData = new HashMap<>();
-    for(String fileName : info.files()) {
-      FileMetaData metaData = primary.readLocalFileMetaData(fileName);
-      assert metaData != null;
-      assert filesMetaData.containsKey(fileName) == false;
-      filesMetaData.put(fileName, metaData);
+        public PreCopyMergedSegmentWarmer(PrimaryNode primary)
+        {
+            this.primary = primary;
+        }
+
+        /// <exception cref="IOException"/>
+        public override void Warm(AtomicReader reader)
+        {
+            long startNS = Time.NanoTime();
+            SegmentCommitInfo info = ((SegmentReader)reader).SegmentInfo;
+            //System.out.println("TEST: warm merged segment files " + info);
+            IDictionary<string, FileMetaData> filesMetaData = new Dictionary<string, FileMetaData>();
+            foreach (string fileName in info.GetFiles())
+            {
+                FileMetaData metaData = primary.ReadLocalFileMetaData(fileName);
+                if (Debugging.AssertsEnabled)
+                {
+                    Debugging.Assert(metaData != null);
+                    Debugging.Assert(filesMetaData.ContainsKey(fileName) == false);
+                }
+                filesMetaData.Add(fileName, metaData);
+            }
+
+            primary.PreCopyMergedSegmentFiles(info, filesMetaData);
+            primary.Message(string.Format("top: done warm merge " + info + ": took %.3f sec, %.1f MB", (Time.NanoTime() - startNS) / 1000000000.0, info.GetSizeInBytes() / 1024 / 1024.0));
+            primary.FinishedMergedFiles.addAll(filesMetaData.Keys);
+        }
     }
-
-    primary.preCopyMergedSegmentFiles(info, filesMetaData);
-    primary.message(String.format(Locale.ROOT, "top: done warm merge " + info + ": took %.3f sec, %.1f MB", (System.nanoTime()-startNS)/1000000000., info.sizeInBytes()/1024/1024.));
-    primary.finishedMergedFiles.addAll(filesMetaData.keySet());
-  }
 }
